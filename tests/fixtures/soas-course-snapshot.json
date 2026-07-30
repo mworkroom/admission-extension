@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 3,
+  "siteKey": "soas",
+  "title": "MSc Global Development | SOAS",
+  "url": "https://www.soas.ac.uk/study/find-course/msc-global-development",
+  "universityName": "SOAS University of London",
+  "courseName": "MSc Global Development",
+  "entryRequirements": "We will consider all applications with 2:2 (or international equivalent) or higher.",
+  "koreanAcademicRequirements": "Qualifications (Bachelor equivalency): Bachelor's degree from a recognised institution Equivalent to 2:ii: GPA 2.5/4.0; or 2.8/4.3; or 3.0/4.5",
+  "englishRequirement": "",
+  "englishRequirementUrl": "https://www.soas.ac.uk/study/international/english-language-requirements",
+  "tuitionFeeCandidates": [
+    {
+      "academicCycle": "",
+      "intakeMonth": 9,
+      "intakeYear": 0,
+      "studyMode": "full-time",
+      "feeStatus": "home",
+      "value": "£12,965",
+      "rawText": "Home: £12,965 International: £25,320",
+      "publicationStatus": "published"
+    },
+    {
+      "academicCycle": "",
+      "intakeMonth": 9,
+      "intakeYear": 0,
+      "studyMode": "full-time",
+      "feeStatus": "international",
+      "value": "£25,320",
+      "rawText": "Home: £12,965 International: £25,320",
+      "publicationStatus": "published"
+    }
+  ],
+  "applicationFeeCandidates": [],
+  "applicationDeadlines": [],
+  "supportingDocuments": {
+    "reference": {
+      "status": "found",
+      "value": "Optional",
+      "detail": "References are optional, but can help build a stronger application if you fall below the 2:2 requirement or have non-traditional qualifications.",
+      "rawText": "References are optional, but can help build a stronger application if you fall below the 2:2 requirement or have non-traditional qualifications."
+    },
+    "sopGuideline": {
+      "status": "action_required",
+      "reasonCode": "guideline_not_provided",
+      "value": "Supporting statement",
+      "detail": "제출 언급은 있지만 과정 페이지에 분량·질문 등 작성 지침은 없습니다.",
+      "nextAction": "지원서의 supporting statement 안내를 직접 확인하세요.",
+      "rawText": "In addition to degree classification we take into account other elements of the application such as supporting statement."
+    },
+    "cv": null
+  }
+}

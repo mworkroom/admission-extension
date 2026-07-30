@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Admission Checklist",
+  "description": "입학요강의 핵심 11개 항목을 현재 페이지에서 확인하고 출처와 함께 정리합니다.",
+  "version": "0.7.1",
+  "minimum_chrome_version": "116",
+  "icons": {
+		"128": "icon128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "sidePanel",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "입학요강 체크리스트 열기",
+	"default_icon": {
+		"128": "icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  }
+}

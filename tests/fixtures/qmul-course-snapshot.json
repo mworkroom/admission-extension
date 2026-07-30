@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 3,
+  "siteKey": "qmul",
+  "title": "Corporate Finance MSc - Queen Mary University of London",
+  "url": "https://www.qmul.ac.uk/postgraduate/taught/coursefinder/courses/corporate-finance-msc/",
+  "universityName": "Queen Mary University of London",
+  "courseName": "Corporate Finance MSc",
+  "entryRequirements": "A 2:2 or above at undergraduate level in any subject.",
+  "koreanAcademicRequirements": "We normally consider the following qualifications for entry to our postgraduate taught programmes: Bachelor Degree (minimum 4 years) from a recognised institution. UK 1st class degree: GPA 4.2 out of 4.5; or GPA 4.0 out of 4.3; or GPA 3.7 out of 4.0 UK 2:1 degree: GPA 3.5 out of 4.5; or GPA 3.3 out of 4.3; or GPA 3.2 out of 4.0 UK 2:2 degree: GPA 3.0 out of 4.5; or GPA 2.8 out of 4.3; or GPA 2.5 out of 4.0",
+  "koreanAcademicRequirementCandidates": [
+    {
+      "degreeClass": "first",
+      "label": "UK 1st class degree",
+      "value": "UK 1st class degree: GPA 4.2 out of 4.5; or GPA 4.0 out of 4.3; or GPA 3.7 out of 4.0"
+    },
+    {
+      "degreeClass": "upper_second",
+      "label": "UK 2:1 degree",
+      "value": "UK 2:1 degree: GPA 3.5 out of 4.5; or GPA 3.3 out of 4.3; or GPA 3.2 out of 4.0"
+    },
+    {
+      "degreeClass": "lower_second",
+      "label": "UK 2:2 degree",
+      "value": "UK 2:2 degree: GPA 3.0 out of 4.5; or GPA 2.8 out of 4.3; or GPA 2.5 out of 4.0"
+    }
+  ],
+  "englishRequirement": "Band 4: IELTS (Academic) minimum score 6.5 overall with 6.0 in each of Writing, Listening, Reading and Speaking",
+  "englishRequirementUrl": "https://www.qmul.ac.uk/international-students/englishlanguagerequirements/accepted-english-language-tests-and-qualifications/",
+  "tuitionFeeCandidates": [
+    {
+      "academicCycle": "2026/27",
+      "intakeMonth": 9,
+      "intakeYear": 2026,
+      "studyMode": "full-time",
+      "feeStatus": "international",
+      "value": "£35,250",
+      "rawText": "Starting in September 2026 Fees Home: £21,850 Overseas: £35,250",
+      "publicationStatus": "published"
+    },
+    {
+      "academicCycle": "2027/28",
+      "intakeMonth": 9,
+      "intakeYear": 2027,
+      "studyMode": "full-time",
+      "feeStatus": "international",
+      "value": "Fees will be announced",
+      "rawText": "Starting in September 2027 Overseas: Fees will be announced in September 2026",
+      "publicationStatus": "unpublished"
+    }
+  ],
+  "applicationFeeCandidates": [],
+  "applicationDeadlines": [
+    {
+      "intakeMonth": 9,
+      "intakeYear": 2026,
+      "feeStatus": "international",
+      "value": "1st September 2026",
+      "rawText": "Overseas: 1st September 2026",
+      "publicationStatus": "published"
+    },
+    {
+      "intakeMonth": 9,
+      "intakeYear": 2027,
+      "feeStatus": "international",
+      "value": "To be confirmed",
+      "rawText": "Overseas: To be confirmed",
+      "publicationStatus": "unpublished"
+    }
+  ],
+  "supportingDocuments": {
+    "reference": {
+      "status": "found",
+      "value": "One referee",
+      "detail": "Contact details of (or reference letters with official letterhead from) one referee from your most recent academic institution or from an employer.",
+      "rawText": "Contact details of (or reference letters with official letterhead from) one referee from your most recent academic institution or from an employer."
+    },
+    "sopGuideline": {
+      "status": "found",
+      "value": "Required",
+      "detail": "Statement of purpose",
+      "rawText": "Statement of purpose"
+    },
+    "cv": {
+      "status": "found",
+      "value": "Required",
+      "detail": "Curriculum Vitae (CV)/Resume",
+      "rawText": "Curriculum Vitae (CV)/Resume"
+    }
+  }
+}

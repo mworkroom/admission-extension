@@ -1,0 +1,53 @@
+{
+  "kind": "requirements",
+  "title": "Nutrition - Entry Requirements | King's College London",
+  "url": "https://www.kcl.ac.uk/study/postgraduate-taught/courses/nutrition-msc/requirements",
+  "siteName": "King's College London",
+  "courseName": "Nutrition MSc",
+  "selectedCountry": "South Korea",
+  "feesUrl": "https://www.kcl.ac.uk/study/postgraduate-taught/courses/nutrition-msc/fees",
+  "sections": {
+    "standardRequirements": "A minimum 2:1 undergraduate Bachelor’s (honours) degree",
+    "programmeSpecificRequirements": "Minimum 2:1 first degree in biological science, including components of biochemistry and physiology, or a registrable qualification in medicine, dentistry or veterinary medicine.",
+    "equivalentInternationalQualifications": "South Korea: Bachelor degree with a score of 85% or GPA of 3.5/4.5 or 3.3/4.3 or 3.2/4.0 (If both GPA and percentage are present, use percentage over GPA. If only GPA is available, use this instead of asking for percentage).",
+    "englishLanguageRequirements": "English language band: B To study at King's, it is essential that you can communicate in English effectively in an academic environment.",
+    "selectionProcess": "Applications must be made online using King's Apply, the Admissions Portal. A non-refundable application fee of £85 applies. Your application will be assessed primarily on the basis of your academic credentials.",
+    "applicationClosingDateGuidance": "The final application deadlines for this programme are: Overseas (international) fee status: 25 July 2026 (23:59 UK time) Home fee status: 25 August 2026 (23:59 UK time)"
+  },
+  "supportingInformationRows": [
+    {
+      "label": "Personal Statement",
+      "requirement": "Yes",
+      "details": "A personal statement is required. This can be entered directly into the online application form (maximum 4,000 characters) or uploaded as an attachment to the online application form (maximum 2 pages)."
+    },
+    {
+      "label": "Previous Academic Study",
+      "requirement": "Yes",
+      "details": "A copy of official academic transcripts is required."
+    },
+    {
+      "label": "References",
+      "requirement": "Yes",
+      "details": "Two references are required with at least one academic. Professional references will be accepted if you have completed your qualifications over five years ago."
+    },
+    {
+      "label": "Other",
+      "requirement": "Optional",
+      "details": "You may also wish to include a CV (Resume) or evidence of professional registration as part of your application."
+    }
+  ],
+  "applicationDeadlines": [
+    "Overseas (international) fee status: 25 July 2026 (23:59 UK time)",
+    "Home fee status: 25 August 2026 (23:59 UK time)"
+  ],
+  "englishLanguageRequirementItems": [
+    "English language band: B",
+    "To study at King's, it is essential that you can communicate in English effectively in an academic environment."
+  ],
+  "englishLanguageLinks": [
+    {
+      "text": "English Language requirements page",
+      "href": "https://www.kcl.ac.uk/study/postgraduate-taught/how-to-apply/entry-requirements/english-language-requirements"
+    }
+  ]
+}

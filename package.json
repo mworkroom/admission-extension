@@ -1,0 +1,10 @@
+{
+  "name": "admission-extension",
+  "version": "0.7.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check service-worker.js && node --check content/read-kcl-page.js && node --check content/read-soas-page.js && node --check content/read-qmul-page.js && node --check shared/course-parser.js && node --check sidepanel/sidepanel.js && node --test"
+  }
+}

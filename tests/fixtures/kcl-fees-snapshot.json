@@ -1,0 +1,22 @@
+{
+  "kind": "fees",
+  "title": "Nutrition - Fees | King's College London",
+  "url": "https://www.kcl.ac.uk/study/postgraduate-taught/courses/nutrition-msc/fees",
+  "courseName": "Nutrition MSc",
+  "tuitionFeeCandidates": [
+    {
+      "label": "Full time tuition fees UK",
+      "value": "£18,150 per year (2026/27)",
+      "academicCycle": "2026/27",
+      "studyMode": "full-time",
+      "feeStatus": "home"
+    },
+    {
+      "label": "Full time tuition fees international",
+      "value": "£38,300 per year (2026/27)",
+      "academicCycle": "2026/27",
+      "studyMode": "full-time",
+      "feeStatus": "international"
+    }
+  ]
+}
