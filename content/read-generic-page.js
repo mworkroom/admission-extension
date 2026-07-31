@@ -120,16 +120,31 @@ export async function readGenericPage(options = {}) {
 
   const metaContent = (selector) =>
     normalize(document.querySelector(selector)?.getAttribute("content"));
+  const titleOrganization =
+    normalize(document.title)
+      .split("|")
+      .map(normalize)
+      .find((part) => /\b(?:University|College|School)\b/i.test(part)) || "";
   const universityName =
     normalize(options.universityName) ||
     metaContent("meta[property='og:site_name']") ||
     findJsonLdOrganization() ||
+    titleOrganization ||
     hostname;
+  let pathCourseName = "";
+  try {
+    pathCourseName = decodeURIComponent(
+      location.pathname.split("/").filter(Boolean).at(-1) || ""
+    );
+  } catch {
+    pathCourseName =
+      location.pathname.split("/").filter(Boolean).at(-1) || "";
+  }
   const courseName =
     textOf(root?.querySelector("h1")) ||
     metaContent("meta[property='og:title']") ||
     normalize(document.title) ||
-    decodeURIComponent(location.pathname.split("/").filter(Boolean).at(-1) || "") ||
+    pathCourseName ||
     hostname;
   const siteKey =
     slug(options.siteKey) ||
@@ -148,6 +163,10 @@ export async function readGenericPage(options = {}) {
       /\b(?:overall|minimum|score|band|component|element)\b.*\d|\d.*\b(?:overall|minimum|score|band|component|element)\b/i,
       1
     )[0] || "";
+  const englishRequirementUrl =
+    Array.from(root?.querySelectorAll("a[href]") ?? []).find((link) =>
+      /\bEnglish language requirements?\b/i.test(textOf(link))
+    )?.href || "";
 
   const amountPattern = /(?:£\s*|GBP\s*)\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?/i;
   const amountNearInternational = (text) =>
@@ -165,7 +184,7 @@ export async function readGenericPage(options = {}) {
     }
     const year = Number(
       text.match(
-        /(?:academic year|year of entry|entry in|starting in)[^\d]{0,40}(20\d{2})/i
+        /(?:academic year|year of entry|entry in)[^\d]{0,40}(20\d{2})/i
       )?.[1]
     );
     return Number.isInteger(year)
@@ -198,11 +217,19 @@ export async function readGenericPage(options = {}) {
       : { intakeMonth: 0, intakeYear: 0 };
   };
 
-  const tuitionFeeCandidates = findBlocks(
-    /(?:tuition|course)\s+fees?|fees?\s+(?:for|per)/i,
-    /(?:international|overseas|non[- ]?uk)/i,
-    5
-  )
+  const feeSection = collectSection(/^Fees?(?:\s+and\s+funding)?$/i);
+  const tuitionSourceBlocks = [
+    ...findBlocks(
+      /(?:tuition|course)\s+fees?|fees?\s+(?:for|per)/i,
+      /(?:international|overseas|non[- ]?uk)/i,
+      5
+    ),
+    ...(feeSection &&
+    /(?:international|overseas|non[- ]?uk)/i.test(feeSection)
+      ? [feeSection]
+      : [])
+  ].filter((text, index, all) => all.indexOf(text) === index);
+  const tuitionFeeCandidates = tuitionSourceBlocks
     .map((rawText) => {
       const value = amountNearInternational(rawText);
       const intake = intakeFrom(rawText);
@@ -274,8 +301,16 @@ export async function readGenericPage(options = {}) {
     })
     .filter(Boolean);
 
-  const documentItem = (pattern) => {
-    const rawText = collectSection(pattern);
+  const documentItem = (pattern, fallbackPattern = null) => {
+    const rawText =
+      collectSection(pattern) ||
+      (fallbackPattern
+        ? findBlocks(
+            fallbackPattern,
+            /\b(?:required|need|include|submit|upload|optional|not required)\b/i,
+            1
+          )[0] || ""
+        : "");
     return rawText
       ? {
           status: "found",
@@ -297,18 +332,22 @@ export async function readGenericPage(options = {}) {
     entryRequirements,
     koreanAcademicRequirements,
     englishRequirement,
+    englishRequirementUrl,
     tuitionFeeCandidates,
     applicationFeeCandidates,
     applicationDeadlines,
     supportingDocuments: {
       reference: documentItem(
-        /^(?:academic\s+)?references?(?:\s+and\s+referees?)?$|^referees?$/i
+        /^(?:academic\s+)?references?(?:\s+and\s+referees?)?$|^referees?$/i,
+        /\b(?:academic\s+)?references?|referees?\b/i
       ),
       sopGuideline: documentItem(
-        /^(?:statement of purpose|personal statement|supporting statement)$/i
+        /^(?:statement of purpose|personal statement|supporting statement)$/i,
+        /\b(?:statement of purpose|personal statement|supporting statement)\b/i
       ),
       cv: documentItem(
-        /^(?:CV|curriculum vitae|résumé|resume)$/i
+        /^(?:CV|curriculum vitae|résumé|resume)$/i,
+        /\b(?:CV|curriculum vitae|résumé|resume)\b/i
       )
     }
   };

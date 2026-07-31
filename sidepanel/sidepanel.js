@@ -1262,7 +1262,7 @@ function inspectTab(tab) {
       title: tab?.title || "현재 페이지 정보를 읽을 수 없음",
       url: "",
       message:
-        "현재 탭 주소를 읽을 수 없습니다. 지원 과정 페이지에서 확장 아이콘을 다시 눌러주세요."
+        "현재 탭 주소를 읽을 수 없습니다. 분석할 공개 대학 페이지에서 확장 아이콘을 다시 눌러주세요."
     };
   }
 
@@ -1390,15 +1390,15 @@ function createStatusBadge(status) {
   const meta = STATUS_META[status] ?? STATUS_META[EXTRACTION_STATUS.NOT_ANALYZED];
   const badge = document.createElement("span");
   badge.className = `status-badge status-badge--${status}`;
+  badge.setAttribute("aria-label", meta.label);
+  badge.title = meta.label;
 
   const symbol = document.createElement("span");
   symbol.className = "status-badge__symbol";
   symbol.setAttribute("aria-hidden", "true");
   symbol.textContent = meta.symbol;
 
-  const label = document.createElement("span");
-  label.textContent = meta.label;
-  badge.append(symbol, label);
+  badge.append(symbol);
   return badge;
 }
 
@@ -1494,15 +1494,15 @@ function createMemoStatusBadge(status) {
     MEMO_VERIFICATION_META[MEMO_VERIFICATION_STATUS.UNVERIFIED];
   const badge = document.createElement("span");
   badge.className = `memo-status memo-status--${status}`;
+  badge.setAttribute("aria-label", meta.label);
+  badge.title = meta.label;
 
   const symbol = document.createElement("span");
   symbol.className = "memo-status__symbol";
   symbol.setAttribute("aria-hidden", "true");
   symbol.textContent = meta.symbol;
 
-  const label = document.createElement("span");
-  label.textContent = meta.label;
-  badge.append(symbol, label);
+  badge.append(symbol);
   return badge;
 }
 

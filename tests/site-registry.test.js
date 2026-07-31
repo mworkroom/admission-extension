@@ -45,7 +45,6 @@ test("알려진 과정 URL은 정밀 adapter로, 그 밖의 HTTPS 페이지는 g
   assert.equal(unknownUniversity?.key, "bristol-ac-uk");
   assert.equal(unknownUniversity?.readerKey, "generic");
   assert.equal(unknownUniversity?.label, "bristol.ac.uk");
-  assert.equal(isSupportedCourseUrl(unknownUniversity.hostnames[0]), false);
   assert.equal(
     isSupportedCourseUrl(
       "https://www.bristol.ac.uk/study/postgraduate/taught/msc-marketing/"

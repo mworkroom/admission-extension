@@ -6,11 +6,11 @@ const FIELD_DEFINITIONS = [
   ["university", "University"],
   ["course", "Course"],
   ["entryRequirements", "Entry Requirements"],
-  ["koreanAcademicRequirements", "Korean Academic Requirements"],
+  ["koreanAcademicRequirements", "Korean Equivalent"],
   ["englishRequirements", "English Requirements"],
   ["tuitionFee", "Tuition Fee"],
   ["applicationFee", "Application Fee"],
-  ["universityApplicationDeadline", "University Application Deadline"],
+  ["universityApplicationDeadline", "Application Deadline"],
   ["reference", "Reference"],
   ["sopGuideline", "SOP Guideline"],
   ["cv", "CV"]

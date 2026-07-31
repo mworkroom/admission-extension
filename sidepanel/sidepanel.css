@@ -717,9 +717,8 @@ h2 {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 4px;
   min-height: 25px;
-  padding: 3px 7px;
+  padding: 3px 6px;
   border-radius: var(--radius-pill);
   color: var(--color-text-muted);
   background: var(--color-neutral-badge-surface);
@@ -988,12 +987,13 @@ h2 {
 
 .field-card__header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .field-card__title {
+  min-width: 0;
   margin-bottom: 0;
   color: var(--color-text-card-title);
   font-size: 0.92rem;
@@ -1012,9 +1012,8 @@ h2 {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 4px;
   min-height: 25px;
-  padding: 3px 7px;
+  padding: 3px 6px;
   border-radius: var(--radius-pill);
   color: var(--color-text-muted);
   background: var(--color-neutral-badge-surface);
@@ -1056,8 +1055,7 @@ h2 {
 .field-card__value {
   margin-bottom: 0;
   color: var(--color-text-value);
-  font-size: 0.91rem;
-  font-weight: 800;
+  font-size: 0.81rem;
   line-height: 1.55;
   white-space: pre-line;
 }
@@ -1501,7 +1499,6 @@ h2 {
     width: 100%;
   }
 
-  .field-card__header,
   .field-card__footer,
   .work-field__heading,
   .inline-memo__header,
@@ -1510,7 +1507,6 @@ h2 {
     flex-direction: column;
   }
 
-  .status-badge,
   .memo-status {
     align-self: flex-start;
   }

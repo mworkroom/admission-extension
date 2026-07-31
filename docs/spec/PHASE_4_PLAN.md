@@ -12,7 +12,8 @@
 - P4-3 수정·복사·실패 기록 완료
 - P4-4 내보내기와 반복 실패 요약 완료
 - P4-5 자동 검사·저장 실패·430px 로컬 회귀 완료
-- 현재 확장 버전: `0.12.0`
+- 미등록 대학 공개 페이지의 generic 분석 경로 완료
+- 현재 확장 버전: `0.13.0`
 - 다음 작업: P4-5 실제 Chrome 수동 검증
 
 ---
@@ -22,6 +23,8 @@
 - 모든 작업 데이터는 `chrome.storage.local`에만 저장한다.
 - 현재 사용자가 연 활성 탭에서만 읽고 동작한다.
 - 새 권한과 광범위한 host permission을 추가하지 않는다.
+- 학교 whitelist를 두지 않는다. 모든 일반 HTTPS 공개 대학 페이지에서 generic 분석을 시작할 수 있다.
+- KCL·SOAS·QMUL·Manchester의 확인된 과정 구조에는 정밀 adapter를 우선 사용한다.
 - 현재 페이지 원문과 출처를 유지하고 값을 추측하거나 자동 덮어쓰지 않는다.
 - 전체 대학 사이트 크롤링, 로그인 페이지, CAPTCHA, Word·Notion 연동은 포함하지 않는다.
 - 상담 위젯은 네트워크 요청을 차단하지 않고 화면 요소만 숨긴다.
@@ -51,7 +54,7 @@
 - [x] 현재 분석 결과와 수동 수정값의 출처 구분
 - [x] 손상 데이터 격리와 schema version 보호
 
-저장 키는 `activeCourseWork`, schema version은 `1`이다. 활성 작업 id는 학교, 정확한 과정 URL에서 분리한 과정 키, 학년도, 입학 연월, 수학 형태와 fee status를 조합한다. KCL Requirements·Fees는 같은 과정 키로 묶고 SOAS·QMUL·Manchester도 지원 과정 URL의 정확한 slug만 사용한다.
+저장 키는 `activeCourseWork`, schema version은 `1`이다. 활성 작업 id는 학교, 정확한 과정 URL에서 분리한 과정 키, 학년도, 입학 연월, 수학 형태와 fee status를 조합한다. KCL Requirements·Fees는 같은 과정 키로 묶고 SOAS·QMUL·Manchester도 확인된 과정 URL의 정확한 slug를 사용한다. 미등록 학교는 `www`를 제거한 hostname으로 학교 키를 만들고, URL path의 마지막 과정 slug를 사용하되 `entry-requirements`, `fees`, `overview` 같은 섹션 이름은 제외한다.
 
 11개 항목은 각각 복수의 값 entry와 선택된 entry id를 가질 수 있다. entry의 `origin`은 `analysis` 또는 `manual`이며, 분석값은 작업의 공식 출처 페이지 목록에 등록된 HTTPS URL을 반드시 가리킨다. 수동값은 출처가 없더라도 실제 입력값을 필수로 보존한다.
 
@@ -99,11 +102,12 @@
 ### P4-5 — 전체 검증
 
 - [x] 저장 실패 시 기존 활성 작업 유지
-- [x] KCL·SOAS·QMUL·Manchester 자동 회귀
+- [x] KCL·SOAS·QMUL·Manchester 정밀 adapter 자동 회귀
+- [x] 미등록 HTTPS 대학 generic 분석·실패 기록 회귀
 - [x] 430px Side Panel UI 회귀
 - [ ] 실제 Chrome에서 여러 페이지 작업과 저장 유지 확인
 
-자동 검사 106개와 430px 로컬 UI harness에서 작업 시작·직접 입력·실사용 기록 저장 실패, 다른 과정 교체 취소·확정, 네 학교 11개 카드와 가로 넘침 없음을 확인했다. KCL SOP의 확인된 원문에 `online application form`이 포함되어도 지원서 확인 실패로 잘못 분류하지 않도록 `0.11.1`에서 보강했다. 실사용에서 발견된 Alliance MBS URL 미지원 문제는 `0.12.0`에서 Manchester 과정 탭과 여섯 공식 보조 페이지를 합치는 adapter로 해결했다. 실제 Chrome에서 Manchester 공식 페이지 DOM과 추출 패턴을 확인했지만, 확장 관리 화면과 Side Panel 동작은 자동 제어할 수 없어 `docs/qa/PHASE_4_CHROME_CHECKLIST.md`의 수동 검증이 남아 있다.
+자동 검사 107개와 430px 로컬 UI harness에서 작업 시작·직접 입력·실사용 기록 저장 실패, 다른 과정 교체 취소·확정, 정밀 adapter 네 학교와 generic 대학의 11개 카드 및 가로 넘침 없음을 확인했다. KCL SOP의 확인된 원문에 `online application form`이 포함되어도 지원서 확인 실패로 잘못 분류하지 않도록 `0.11.1`에서 보강했다. Alliance MBS는 `0.12.0`에서 정밀 adapter를 추가했으며, `0.13.0`에서는 학교 whitelist를 제거하고 나머지 일반 HTTPS 페이지를 generic reader로 연결했다. 실제 Bristol MSc Marketing DOM에서 학교·과정·Entry requirements·영어 안내 링크·국제 학비·CV 판독을 확인했다. 확장 관리 화면과 Side Panel 동작은 자동 제어할 수 없어 `docs/qa/PHASE_4_CHROME_CHECKLIST.md`의 수동 검증이 남아 있다.
 
 ---
 
@@ -114,4 +118,4 @@
 - 직접 입력, 수정, 복사와 실패가 실제 사용 흐름에서 자동 기록된다.
 - 반복 실패를 학교·항목·원인별로 확인해 다음 개선 대상을 결정할 수 있다.
 - 손상 데이터와 저장 실패가 기존 작업을 훼손하지 않는다.
-- 권한을 추가하지 않고 KCL·SOAS·QMUL·Manchester 자동·430px·실제 Chrome 검증을 통과한다.
+- 권한을 추가하지 않고 정밀 adapter와 미등록 대학 generic 경로의 자동·430px·실제 Chrome 검증을 통과한다.

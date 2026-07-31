@@ -134,11 +134,13 @@ export function deriveCourseKeyFromUrl(siteKey, value) {
         return "";
       }
       const match = definition.pattern.exec(url.pathname);
-      return match ? normalizeCourseKey(match[1]) : "";
+      if (match) {
+        return normalizeCourseKey(match[1]);
+      }
     }
 
     const hostnameSiteKey = normalizeCourseKey(hostname);
-    if (normalizedSiteKey !== hostnameSiteKey) {
+    if (!definition && normalizedSiteKey !== hostnameSiteKey) {
       return "";
     }
 

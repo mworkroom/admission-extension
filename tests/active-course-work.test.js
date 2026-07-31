@@ -150,6 +150,13 @@ test("정밀 adapter와 generic 대학 URL에서 안정적인 과정 키를 분�
     "msc-marketing"
   );
   assert.equal(
+    deriveCourseKeyFromUrl(
+      "manchester",
+      "https://www.alliancembs.manchester.ac.uk/study/masters/masters-entry-requirements/"
+    ),
+    "masters-entry-requirements"
+  );
+  assert.equal(
     deriveCourseKeyFromUrl("qmul", "https://example.com/corporate-finance-msc"),
     ""
   );

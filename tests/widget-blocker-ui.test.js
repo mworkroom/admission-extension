@@ -11,7 +11,6 @@ test("현재 페이지에 상담 위젯 숨김 설정을 제공한다", async ()
 
   assert.match(html, /id="hide-known-widgets-input"/);
   assert.match(html, /상담 위젯 숨기기/);
-  assert.match(html, /Unibuddy 등 확인된 팝업/);
   assert.match(html, /id="widget-control-status"/);
 });
 

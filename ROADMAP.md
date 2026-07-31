@@ -94,6 +94,10 @@
 - 실사용에서 발견된 Alliance Manchester Business School의 과정 URL 미지원 문제를 해결해 Manchester MSc 과정 탭 adapter를 추가하고 버전을 `0.12.0`으로 올렸다.
 - Manchester adapter는 과정별 Overview·Entry requirements·Application and selection과 학교 공통 Entry requirements·How to apply·Supporting documents의 공식 원문을 합쳐 11개 항목과 각 출처를 만든다.
 - 자동 검사 106개와 Manchester 430px 로컬 UI 회귀를 통과했고, 실제 Chrome에서 관련 공식 페이지의 DOM과 추출 패턴을 확인했다. 실제 `0.12.0` Side Panel 분석은 J님의 수동 확인이 남아 있다.
+- 학교를 하나씩 허용 목록에 추가하는 구조가 실사용 데이터 수집 목적과 맞지 않는다는 피드백을 반영해 `0.13.0`에서 학교 whitelist를 제거했다.
+- 모든 일반 HTTPS 공개 대학 페이지는 도메인별 generic reader로 분석하며, 정밀 adapter가 있는 네 학교만 기존 판독기를 우선 사용한다.
+- generic reader는 현재 페이지의 학교·과정·입학요건·한국 조건·영어 안내·국제 학비·지원비·마감일·Reference·SOP·CV를 보수적으로 찾고, 찾지 못한 항목도 실패 기록으로 남긴다.
+- 실제 Bristol MSc Marketing 공개 페이지에서 generic 판독을 확인하고, 자동 검사 107개와 430px generic UI 회귀를 통과했다. 실제 확장 `0.13.0` Side Panel 확인은 남아 있다.
 - 실제 Chrome의 활성 작업·직접 입력·내보내기와 패널 재오픈 저장 유지도 아직 확인하지 않았다.
 - 다음 작업은 `docs/qa/PHASE_4_CHROME_CHECKLIST.md`에 따른 실제 Chrome 수동 검증이다.
 

@@ -23,7 +23,7 @@ test("11개 항목의 키, 이름, 순서, 초기 상태가 고정되어 있다"
       },
       {
         key: "koreanAcademicRequirements",
-        label: "Korean Academic Requirements",
+        label: "Korean Equivalent",
         order: 4,
         status: NOT_ANALYZED_STATUS
       },
@@ -42,7 +42,7 @@ test("11개 항목의 키, 이름, 순서, 초기 상태가 고정되어 있다"
       },
       {
         key: "universityApplicationDeadline",
-        label: "University Application Deadline",
+        label: "Application Deadline",
         order: 8,
         status: NOT_ANALYZED_STATUS
       },

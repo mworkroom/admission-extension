@@ -141,7 +141,7 @@ test("색상과 모서리 값은 최상단 디자인 토큰으로 관리한다",
   assert.match(rootRule, /--color-brand:\s*#173f73/);
   assert.match(rootRule, /--color-success-text:\s*#1d6242/);
   assert.match(rootRule, /--radius-sm:\s*8px/);
-  assert.match(rootRule, /--radius-dialog:\s*18px/);
+  assert.match(rootRule, /--radius-dialog:\s*8px/);
   assert.doesNotMatch(componentRules, /#[0-9a-f]{3,8}\b/i);
   assert.doesNotMatch(componentRules, /\brgb\(/i);
   assert.doesNotMatch(
