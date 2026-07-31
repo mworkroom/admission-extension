@@ -51,6 +51,72 @@ test("SOAS는 South Korea 블록을 읽되 적용 학년 없는 학비는 확정
   assert.equal(fields.cv.status, EXTRACTION_STATUS.NOT_FOUND);
 });
 
+test("Manchester는 과정·공통 안내의 11개 항목과 각 원문 출처를 합친다", async () => {
+  const analysis = parseCourseSnapshot(
+    await fixture("manchester-masters-snapshot.json"),
+    createDefaultBasis(FIXED_DATE),
+    FIXED_DATE
+  );
+  const fields = byKey(analysis);
+
+  assert.equal(analysis.siteKey, "manchester");
+  assert.equal(analysis.summary.found, 11);
+  assert.equal(fields.university.value, "The University of Manchester");
+  assert.equal(fields.course.value, "MSc Marketing");
+  assert.match(fields.entryRequirements.value, /2:1, with 60% average/);
+  assert.equal(
+    fields.koreanAcademicRequirements.value,
+    "We require a bachelor’s degree with minimum average of 3.3/4.3 or 3.5/4.5."
+  );
+  assert.equal(
+    fields.englishRequirements.value,
+    "IELTS 7.0 overall and no other element below 6.5"
+  );
+  assert.equal(fields.tuitionFee.value, "£33,100");
+  assert.equal(fields.applicationFee.value, "£60");
+  assert.equal(fields.universityApplicationDeadline.value, "5 July 2026");
+  assert.equal(fields.reference.value, "Not required at application");
+  assert.equal(fields.sopGuideline.value, "Required");
+  assert.match(fields.sopGuideline.detail, /no more than one page/);
+  assert.match(fields.cv.value, /more than two years/);
+  assert.match(fields.tuitionFee.source.url, /msc-marketing\/overview/);
+  assert.match(
+    fields.koreanAcademicRequirements.source.url,
+    /international-entry-requirements/
+  );
+  assert.match(fields.reference.source.url, /supporting-documents/);
+});
+
+test("미등록 대학 generic snapshot도 11개 항목과 실패 기록 대상으로 분석한다", async () => {
+  const snapshot = await fixture("generic-university-snapshot.json");
+  const analysis = parseCourseSnapshot(
+    snapshot,
+    createDefaultBasis(new Date("2026-07-31T12:00:00.000Z")),
+    new Date("2026-07-31T12:00:00.000Z")
+  );
+  const fields = Object.fromEntries(
+    analysis.fields.map((field) => [field.key, field])
+  );
+
+  assert.equal(analysis.siteKey, "bristol-ac-uk");
+  assert.equal(analysis.fields.length, 11);
+  assert.equal(analysis.summary.found, 7);
+  assert.equal(fields.university.value, "University of Bristol");
+  assert.equal(fields.course.value, "MSc Marketing");
+  assert.equal(fields.englishRequirements.value, "IELTS 7.0 overall with no component below 6.5.");
+  assert.equal(fields.tuitionFee.value, "£32,500");
+  assert.equal(fields.applicationFee.status, EXTRACTION_STATUS.NOT_FOUND);
+  assert.equal(fields.applicationFee.reasonCode, "not_present");
+  assert.equal(
+    fields.universityApplicationDeadline.value,
+    "20 July 2026"
+  );
+  assert.equal(
+    fields.reference.source.url,
+    snapshot.url
+  );
+});
+
 test("QMUL 2026 기준은 해당 intake 학비·마감일과 2:2 한국 GPA만 선택한다", async () => {
   const analysis = parseCourseSnapshot(
     await fixture("qmul-course-snapshot.json"),

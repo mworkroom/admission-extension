@@ -12,7 +12,7 @@ test("Manifest V3와 Chrome 116 이상을 사용한다", async () => {
   assert.equal(manifest.background.service_worker, "service-worker.js");
   assert.equal(manifest.side_panel.default_path, "sidepanel/sidepanel.html");
   assert.equal("default_popup" in manifest.action, false);
-  assert.equal(manifest.version, "0.7.1");
+  assert.equal(manifest.version, "0.13.0");
 });
 
 test("Phase 1은 activeTab 기반 추출에 필요한 최소 권한만 요청한다", async () => {

@@ -49,6 +49,16 @@
         <div class="page-summary" id="page-summary" aria-live="polite" aria-busy="true">
           <p class="loading-message">활성 탭을 확인하고 있습니다.</p>
         </div>
+
+        <div class="widget-control">
+          <label class="widget-control__label" for="hide-known-widgets-input">
+            <input id="hide-known-widgets-input" type="checkbox">
+            <span>
+              <strong>상담 위젯 숨기기</strong> 
+            </span>
+          </label>
+          <p class="widget-control__status" id="widget-control-status" role="status" aria-live="polite"></p>
+        </div>
       </section>
 
       <section class="content-section result-section" aria-labelledby="result-title">
@@ -67,6 +77,68 @@
 
         <div class="analysis-summary" id="analysis-summary" aria-live="polite">
           <p>분석 가능한 페이지에서 결과를 확인할 수 있습니다.</p>
+        </div>
+
+        <div class="active-work" id="active-work-panel">
+          <div class="active-work__heading">
+            <div>
+              <p class="active-work__eyebrow">활성 과정 작업</p>
+              <strong id="active-work-name">저장된 작업 없음</strong>
+            </div>
+            <span class="active-work__conflict" id="active-work-conflict" hidden></span>
+          </div>
+          <p class="active-work__meta" id="active-work-meta">
+            현재 분석을 작업으로 저장하면 다른 공식 페이지의 값을 이어서 합칠 수 있습니다.
+          </p>
+          <button
+            class="button button--secondary active-work__button"
+            id="add-to-active-work-button"
+            type="button"
+            disabled
+          >
+            현재 페이지를 먼저 분석
+          </button>
+          <p
+            class="active-work__status"
+            id="active-work-status"
+            role="status"
+            aria-live="polite"
+          ></p>
+          <div class="work-export" aria-labelledby="work-export-title">
+            <div class="work-export__heading">
+              <strong id="work-export-title">내보내기와 실패 요약</strong>
+              <span id="work-activity-count">기록 0개</span>
+            </div>
+            <div class="work-export__actions">
+              <button
+                class="button button--compact"
+                id="export-active-work-json-button"
+                type="button"
+                disabled
+              >
+                활성 작업 JSON
+              </button>
+              <button
+                class="button button--compact"
+                id="export-work-activity-csv-button"
+                type="button"
+                disabled
+              >
+                실사용 기록 CSV
+              </button>
+            </div>
+            <details class="work-failure-summary" id="work-failure-summary">
+              <summary id="work-failure-summary-label">반복 실패 없음</summary>
+              <p class="work-failure-summary__meta" id="work-failure-summary-meta"></p>
+              <ol class="work-failure-summary__list" id="work-failure-summary-list"></ol>
+            </details>
+            <p
+              class="work-export__status"
+              id="work-export-status"
+              role="status"
+              aria-live="polite"
+            ></p>
+          </div>
         </div>
 
         <div class="notice notice--warning stale-notice" id="stale-notice" hidden>
@@ -300,6 +372,139 @@
           </button>
           <button class="button button--danger" id="confirm-memo-delete-button" type="submit">
             삭제
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog
+      class="basis-dialog active-work-replace-dialog"
+      id="active-work-replace-dialog"
+      aria-labelledby="active-work-replace-dialog-title"
+    >
+      <form id="active-work-replace-form" method="dialog" novalidate>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">다른 작업 확인</p>
+            <h2 id="active-work-replace-dialog-title">활성 작업 교체</h2>
+          </div>
+          <button
+            class="icon-button"
+            id="close-active-work-replace-dialog-button"
+            type="button"
+            aria-label="활성 작업 교체 창 닫기"
+          >
+            ×
+          </button>
+        </div>
+
+        <p class="dialog-description">
+          현재 분석은 저장된 활성 작업과 과정 또는 입학 기준이 다릅니다.
+        </p>
+
+        <div class="active-work-compare" aria-label="교체할 활성 과정 작업 비교">
+          <div>
+            <span>현재 활성 작업</span>
+            <strong id="current-active-work-name"></strong>
+            <small id="current-active-work-basis"></small>
+          </div>
+          <div>
+            <span>새로 시작할 작업</span>
+            <strong id="next-active-work-name"></strong>
+            <small id="next-active-work-basis"></small>
+          </div>
+        </div>
+
+        <p class="active-work-replace-warning" role="alert">
+          교체하면 현재 활성 작업 대신 새 작업이 저장됩니다. 기존 작업은 자동 복구할 수 없습니다.
+        </p>
+        <p class="form-error" id="active-work-replace-error" role="alert"></p>
+
+        <div class="dialog-actions">
+          <button
+            class="button button--secondary"
+            id="cancel-active-work-replace-button"
+            type="button"
+          >
+            취소
+          </button>
+          <button
+            class="button button--danger"
+            id="confirm-active-work-replace-button"
+            type="submit"
+          >
+            교체하고 시작
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog
+      class="basis-dialog work-value-dialog"
+      id="work-value-dialog"
+      aria-labelledby="work-value-dialog-title"
+    >
+      <form id="work-value-form" method="dialog" novalidate>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">활성 과정 작업</p>
+            <h2 id="work-value-dialog-title">활성 작업 값 직접 입력</h2>
+          </div>
+          <button
+            class="icon-button"
+            id="close-work-value-dialog-button"
+            type="button"
+            aria-label="활성 작업 값 입력 창 닫기"
+          >
+            ×
+          </button>
+        </div>
+        <p class="dialog-description">
+          페이지 분석값은 보존하고, 직접 확인한 값을 새 기록으로 선택합니다.
+        </p>
+        <div class="form-grid">
+          <label class="field-control">
+            <span>항목</span>
+            <strong id="work-value-field-label"></strong>
+          </label>
+          <label class="field-control">
+            <span>직접 확인한 값</span>
+            <textarea
+              id="work-value-input"
+              rows="5"
+              required
+              placeholder="입학요강에 사용할 값을 입력하세요."
+            ></textarea>
+          </label>
+          <label class="field-control">
+            <span>출처 URL <small>(선택)</small></span>
+            <input
+              id="work-value-source-url-input"
+              type="url"
+              inputmode="url"
+              placeholder="https://..."
+            >
+          </label>
+          <label class="field-control">
+            <span>출처 이름 <small>(선택)</small></span>
+            <input
+              id="work-value-source-label-input"
+              type="text"
+              placeholder="예: 지원서 안내"
+            >
+          </label>
+        </div>
+        <p class="form-error" id="work-value-dialog-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button
+            class="button button--secondary"
+            id="cancel-work-value-dialog-button"
+            type="button"
+          >
+            취소
+          </button>
+          <button class="button button--primary" id="save-work-value-button" type="submit">
+            작업 값 저장
           </button>
         </div>
       </form>

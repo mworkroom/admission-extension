@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 3,
+  "siteKey": "bristol-ac-uk",
+  "title": "MSc Marketing | University of Bristol",
+  "url": "https://www.bristol.ac.uk/study/postgraduate/taught/msc-marketing/entry-requirements/",
+  "universityName": "University of Bristol",
+  "courseName": "MSc Marketing",
+  "entryRequirements": "An upper second-class honours degree or international equivalent is required.",
+  "koreanAcademicRequirements": "",
+  "englishRequirement": "IELTS 7.0 overall with no component below 6.5.",
+  "tuitionFeeCandidates": [
+    {
+      "academicCycle": "2026/27",
+      "intakeMonth": 9,
+      "intakeYear": 2026,
+      "studyMode": "full-time",
+      "feeStatus": "international",
+      "value": "£32,500",
+      "rawText": "2026/27 full-time international tuition fee: £32,500.",
+      "sourceUrl": "https://www.bristol.ac.uk/study/postgraduate/taught/msc-marketing/entry-requirements/",
+      "publicationStatus": "published"
+    }
+  ],
+  "applicationFeeCandidates": [],
+  "applicationDeadlines": [
+    {
+      "academicCycle": "2026/27",
+      "intakeMonth": 9,
+      "intakeYear": 2026,
+      "feeStatus": "international",
+      "value": "20 July 2026",
+      "rawText": "The application deadline for September 2026 entry is 20 July 2026.",
+      "sourceUrl": "https://www.bristol.ac.uk/study/postgraduate/taught/msc-marketing/entry-requirements/",
+      "publicationStatus": "published"
+    }
+  ],
+  "supportingDocuments": {
+    "reference": {
+      "status": "found",
+      "value": "Two academic references are required.",
+      "detail": "",
+      "rawText": "Two academic references are required.",
+      "sourceUrl": "https://www.bristol.ac.uk/study/postgraduate/taught/msc-marketing/entry-requirements/"
+    },
+    "sopGuideline": null,
+    "cv": null
+  }
+}

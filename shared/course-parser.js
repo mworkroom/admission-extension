@@ -36,7 +36,12 @@ function parseTextField(field, snapshot, key, sectionLabel, nextAction) {
   return value
     ? makeResult(field, EXTRACTION_STATUS.FOUND, {
         value,
-        source: sourceFor(snapshot, sectionLabel, value)
+        source: sourceFor(
+          snapshot,
+          sectionLabel,
+          value,
+          snapshot[`${key}Url`]
+        )
       })
     : missing(
         field,
@@ -101,7 +106,12 @@ function parseKoreanRequirements(field, snapshot) {
   if (candidates.length === 0) {
     return makeResult(field, EXTRACTION_STATUS.FOUND, {
       value: fullText,
-      source: sourceFor(snapshot, "South Korea qualifications", fullText)
+      source: sourceFor(
+        snapshot,
+        "South Korea qualifications",
+        fullText,
+        snapshot.koreanAcademicRequirementsUrl
+      )
     });
   }
 
@@ -113,7 +123,12 @@ function parseKoreanRequirements(field, snapshot) {
     return makeResult(field, EXTRACTION_STATUS.FOUND, {
       reasonCode: `degree_class_${degreeClass}`,
       value: matches[0].value,
-      source: sourceFor(snapshot, "South Korea qualifications", fullText)
+      source: sourceFor(
+        snapshot,
+        "South Korea qualifications",
+        fullText,
+        snapshot.koreanAcademicRequirementsUrl
+      )
     });
   }
 
@@ -125,7 +140,12 @@ function parseKoreanRequirements(field, snapshot) {
     detail:
       "과정의 요구 등급과 한국 동등 기준을 하나로 확정하지 못해 전문을 표시합니다.",
     nextAction: "과정 기본 조건과 같은 UK degree 행을 직접 확인하세요.",
-    source: sourceFor(snapshot, "South Korea qualifications", fullText),
+    source: sourceFor(
+      snapshot,
+      "South Korea qualifications",
+      fullText,
+      snapshot.koreanAcademicRequirementsUrl
+    ),
     copyText: ""
   });
 }
@@ -189,7 +209,8 @@ function parseTuition(field, snapshot, basis) {
       source: sourceFor(
         snapshot,
         "Tuition fees",
-        candidates.map((candidate) => candidate.rawText).join(" ")
+        candidates.map((candidate) => candidate.rawText).join(" "),
+        candidates[0]?.sourceUrl
       ),
       copyText: ""
     });
@@ -213,7 +234,12 @@ function parseTuition(field, snapshot, basis) {
       value: normalizeText(candidate.value),
       detail: "이 입학연도의 학비는 아직 발표되지 않았습니다.",
       nextAction: "학교가 안내한 발표 시점 이후 다시 확인하세요.",
-      source: sourceFor(snapshot, "Tuition fees", candidate.rawText),
+      source: sourceFor(
+        snapshot,
+        "Tuition fees",
+        candidate.rawText,
+        candidate.sourceUrl
+      ),
       copyText: ""
     });
   }
@@ -223,7 +249,12 @@ function parseTuition(field, snapshot, basis) {
       value: amount,
       detail: "페이지에 학비 적용 학년이 표시되지 않아 현재 기준과의 일치를 확정할 수 없습니다.",
       nextAction: "과정 페이지의 적용 학년을 직접 확인하세요.",
-      source: sourceFor(snapshot, "Tuition fees", candidate.rawText),
+      source: sourceFor(
+        snapshot,
+        "Tuition fees",
+        candidate.rawText,
+        candidate.sourceUrl
+      ),
       copyText: ""
     });
   }
@@ -239,7 +270,12 @@ function parseTuition(field, snapshot, basis) {
 
   return makeResult(field, EXTRACTION_STATUS.FOUND, {
     value: amount,
-    source: sourceFor(snapshot, "Tuition fees", candidate.rawText)
+    source: sourceFor(
+      snapshot,
+      "Tuition fees",
+      candidate.rawText,
+      candidate.sourceUrl
+    )
   });
 }
 
@@ -258,7 +294,12 @@ function parseApplicationFee(field, snapshot) {
   return amount
     ? makeResult(field, EXTRACTION_STATUS.FOUND, {
         value: amount,
-        source: sourceFor(snapshot, "Application fee", candidate.rawText)
+        source: sourceFor(
+          snapshot,
+          "Application fee",
+          candidate.rawText,
+          candidate.sourceUrl
+        )
       })
     : missing(
         field,
@@ -295,14 +336,24 @@ function parseDeadline(field, snapshot, basis) {
       value: normalizeText(candidate.value),
       detail: "이 입학연도의 지원 마감일은 아직 확정되지 않았습니다.",
       nextAction: "학교가 마감일을 발표한 뒤 다시 확인하세요.",
-      source: sourceFor(snapshot, "Application deadline", candidate.rawText),
+      source: sourceFor(
+        snapshot,
+        "Application deadline",
+        candidate.rawText,
+        candidate.sourceUrl
+      ),
       copyText: ""
     });
   }
   return makeResult(field, EXTRACTION_STATUS.FOUND, {
     value: normalizeText(candidate.value),
     copyText: normalizeText(candidate.rawText || candidate.value),
-    source: sourceFor(snapshot, "Application deadline", candidate.rawText)
+    source: sourceFor(
+      snapshot,
+      "Application deadline",
+      candidate.rawText,
+      candidate.sourceUrl
+    )
   });
 }
 
@@ -327,7 +378,12 @@ function parseDocument(field, snapshot, documentKey, sectionLabel) {
     value: item.value,
     detail: item.detail,
     nextAction: item.nextAction,
-    source: sourceFor(snapshot, sectionLabel, item.rawText),
+    source: sourceFor(
+      snapshot,
+      sectionLabel,
+      item.rawText,
+      item.sourceUrl
+    ),
     copyText: status === EXTRACTION_STATUS.FOUND ? item.rawText : ""
   });
 }

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 3,
+  "siteKey": "manchester",
+  "title": "Masters (MSc) in Marketing | Alliance MBS",
+  "url": "https://www.alliancembs.manchester.ac.uk/study/masters/msc-marketing/entry-requirements/",
+  "universityName": "The University of Manchester",
+  "courseName": "MSc Marketing",
+  "entryRequirements": "We require a First or Upper Second class honours degree (2:1, with 60% average) from a UK university or the overseas equivalent.",
+  "entryRequirementsUrl": "https://www.alliancembs.manchester.ac.uk/study/masters/msc-marketing/entry-requirements/",
+  "koreanAcademicRequirements": "We require a bachelor’s degree with minimum average of 3.3/4.3 or 3.5/4.5.",
+  "koreanAcademicRequirementsUrl": "https://www.alliancembs.manchester.ac.uk/study/masters/masters-entry-requirements/international-entry-requirements/",
+  "englishRequirement": "IELTS 7.0 overall and no other element below 6.5",
+  "englishRequirementUrl": "https://www.alliancembs.manchester.ac.uk/study/masters/masters-entry-requirements/",
+  "tuitionFeeCandidates": [
+    {
+      "academicCycle": "2026/27",
+      "intakeMonth": 9,
+      "intakeYear": 2026,
+      "studyMode": "full-time",
+      "feeStatus": "international",
+      "value": "£33,100",
+      "rawText": "For entry in the academic year beginning September 2026, the tuition fees are as follows: MSc (full-time) International, including EU, students (per annum): £33,100",
+      "sourceUrl": "https://www.alliancembs.manchester.ac.uk/study/masters/msc-marketing/overview/",
+      "publicationStatus": "published"
+    }
+  ],
+  "applicationFeeCandidates": [
+    {
+      "value": "£60",
+      "rawText": "There is a non-refundable application fee of £60.",
+      "sourceUrl": "https://www.alliancembs.manchester.ac.uk/study/masters/msc-marketing/application-and-selection/"
+    }
+  ],
+  "applicationDeadlines": [
+    {
+      "academicCycle": "2026/27",
+      "intakeMonth": 9,
+      "intakeYear": 2026,
+      "feeStatus": "international",
+      "value": "5 July 2026",
+      "rawText": "The final application deadline for the 2026/27 academic year is 5 July 2026.",
+      "sourceUrl": "https://www.alliancembs.manchester.ac.uk/study/masters/how-to-apply/",
+      "publicationStatus": "published"
+    }
+  ],
+  "supportingDocuments": {
+    "reference": {
+      "status": "found",
+      "value": "Not required at application",
+      "detail": "When you complete your online application, you are not required to submit an academic reference. After an initial assessment of your application, we may contact you to request an academic reference.",
+      "rawText": "When you complete your online application, you are not required to submit an academic reference. After an initial assessment of your application, we may contact you to request an academic reference.",
+      "sourceUrl": "https://www.alliancembs.manchester.ac.uk/study/masters/how-to-apply/supporting-documents/"
+    },
+    "sopGuideline": {
+      "status": "found",
+      "value": "Required",
+      "detail": "Tell us why you are interested in the MSc Marketing course and how it will impact on your future. Describe what makes you an outstanding applicant. Your statement should be no more than one page.",
+      "rawText": "Tell us why you are interested in the MSc Marketing course and how it will impact on your future. Describe what makes you an outstanding applicant. Your statement should be no more than one page.",
+      "sourceUrl": "https://www.alliancembs.manchester.ac.uk/study/masters/msc-marketing/application-and-selection/"
+    },
+    "cv": {
+      "status": "found",
+      "value": "Required with more than two years' postgraduate work experience",
+      "detail": "If you have more than two years' postgraduate work experience you need to submit your CV.",
+      "rawText": "If you have more than two years' postgraduate work experience you need to submit your CV.",
+      "sourceUrl": "https://www.alliancembs.manchester.ac.uk/study/masters/how-to-apply/supporting-documents/"
+    }
+  }
+}

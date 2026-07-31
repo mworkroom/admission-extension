@@ -3,6 +3,15 @@ import {
   formatBasis,
   INTAKE_MONTHS
 } from "../shared/basis.js";
+import {
+  addManualValueToActiveCourseWork,
+  createActiveCourseWorkFromAnalysis,
+  getSelectedWorkValueEntry,
+  loadActiveCourseWorkState,
+  mergeAnalysisIntoActiveCourseWork,
+  saveActiveCourseWork,
+  summarizeActiveCourseWork
+} from "../shared/active-course-work.js";
 import { EXTRACTION_STATUS, STATUS_META } from "../shared/extraction-status.js";
 import { FIELDS } from "../shared/fields.js";
 import {
@@ -33,15 +42,49 @@ import {
   saveAnalysis,
   saveBasis
 } from "../shared/storage.js";
+import {
+  createDefaultWidgetPreferences,
+  loadWidgetPreferences,
+  saveWidgetPreferences
+} from "../shared/widget-preferences.js";
+import {
+  EXTRACTION_FAILURE_CATEGORIES,
+  WORK_ACTIVITY_TYPES,
+  appendWorkActivityEvents,
+  classifyExtractionResult,
+  createExtractionActivityEvents,
+  createWorkActivityEvent,
+  loadWorkActivityLog,
+  saveActiveCourseWorkWithActivity
+} from "../shared/work-activity-log.js";
+import {
+  createExportFilename,
+  serializeActiveCourseWorkJson,
+  serializeWorkActivityCsv,
+  summarizeWorkActivityFailures
+} from "../shared/work-export.js";
 import { readKclPage } from "../content/read-kcl-page.js";
+import { readGenericPage } from "../content/read-generic-page.js";
+import { readManchesterPage } from "../content/read-manchester-page.js";
 import { readQmulPage } from "../content/read-qmul-page.js";
 import { readSoasPage } from "../content/read-soas-page.js";
 
 const PAGE_READERS = Object.freeze({
+  generic: readGenericPage,
   kcl: readKclPage,
   soas: readSoasPage,
-  qmul: readQmulPage
+  qmul: readQmulPage,
+  manchester: readManchesterPage
 });
+
+const KNOWN_WIDGET_CSS = `
+#unibuddy-popcard-wrapper,
+#unibuddy-popcard-iframe,
+iframe[src*="popcard.unibuddy.co"],
+iframe[title="Unibuddy Popcard"] {
+  display: none !important;
+}
+`;
 
 const MEMO_FIELD_LABELS = Object.freeze({
   englishRequirements: "English Requirements",
@@ -66,6 +109,26 @@ const MEMO_SCOPE_LABELS = Object.freeze({
   university: "대학 공통",
   school: "스쿨",
   faculty: "학부"
+});
+
+const SITE_LABELS = Object.freeze({
+  kcl: "KCL",
+  soas: "SOAS",
+  qmul: "QMUL",
+  manchester: "Manchester"
+});
+
+function formatSiteLabel(siteKey) {
+  return (
+    SITE_LABELS[siteKey] ||
+    String(siteKey ?? "").replace(/-/g, ".")
+  );
+}
+
+const FAILURE_CATEGORY_LABELS = Object.freeze({
+  site_structure: "사이트 구조",
+  separate_page: "별도 페이지",
+  application_check: "지원서 확인"
 });
 
 const MEMO_VERIFICATION_META = Object.freeze({
@@ -96,8 +159,35 @@ const elements = {
   resetSeptemberButton: document.querySelector("#reset-september-button"),
   pageSummary: document.querySelector("#page-summary"),
   refreshPageButton: document.querySelector("#refresh-page-button"),
+  hideKnownWidgetsInput: document.querySelector("#hide-known-widgets-input"),
+  widgetControlStatus: document.querySelector("#widget-control-status"),
   analyzeButton: document.querySelector("#analyze-button"),
   analysisSummary: document.querySelector("#analysis-summary"),
+  activeWorkName: document.querySelector("#active-work-name"),
+  activeWorkMeta: document.querySelector("#active-work-meta"),
+  activeWorkConflict: document.querySelector("#active-work-conflict"),
+  addToActiveWorkButton: document.querySelector(
+    "#add-to-active-work-button"
+  ),
+  activeWorkStatus: document.querySelector("#active-work-status"),
+  workActivityCount: document.querySelector("#work-activity-count"),
+  exportActiveWorkJsonButton: document.querySelector(
+    "#export-active-work-json-button"
+  ),
+  exportWorkActivityCsvButton: document.querySelector(
+    "#export-work-activity-csv-button"
+  ),
+  workFailureSummary: document.querySelector("#work-failure-summary"),
+  workFailureSummaryLabel: document.querySelector(
+    "#work-failure-summary-label"
+  ),
+  workFailureSummaryMeta: document.querySelector(
+    "#work-failure-summary-meta"
+  ),
+  workFailureSummaryList: document.querySelector(
+    "#work-failure-summary-list"
+  ),
+  workExportStatus: document.querySelector("#work-export-status"),
   staleNotice: document.querySelector("#stale-notice"),
   fieldList: document.querySelector("#field-list"),
   basisDialog: document.querySelector("#basis-dialog"),
@@ -141,24 +231,882 @@ const elements = {
   memoDeleteVerificationSummary: document.querySelector(
     "#memo-delete-verification-summary"
   ),
-  memoDeleteDialogError: document.querySelector("#memo-delete-dialog-error")
+  memoDeleteDialogError: document.querySelector("#memo-delete-dialog-error"),
+  activeWorkReplaceDialog: document.querySelector(
+    "#active-work-replace-dialog"
+  ),
+  activeWorkReplaceForm: document.querySelector("#active-work-replace-form"),
+  closeActiveWorkReplaceDialogButton: document.querySelector(
+    "#close-active-work-replace-dialog-button"
+  ),
+  cancelActiveWorkReplaceButton: document.querySelector(
+    "#cancel-active-work-replace-button"
+  ),
+  confirmActiveWorkReplaceButton: document.querySelector(
+    "#confirm-active-work-replace-button"
+  ),
+  currentActiveWorkName: document.querySelector("#current-active-work-name"),
+  currentActiveWorkBasis: document.querySelector("#current-active-work-basis"),
+  nextActiveWorkName: document.querySelector("#next-active-work-name"),
+  nextActiveWorkBasis: document.querySelector("#next-active-work-basis"),
+  activeWorkReplaceError: document.querySelector("#active-work-replace-error"),
+  workValueDialog: document.querySelector("#work-value-dialog"),
+  workValueForm: document.querySelector("#work-value-form"),
+  workValueDialogTitle: document.querySelector("#work-value-dialog-title"),
+  closeWorkValueDialogButton: document.querySelector(
+    "#close-work-value-dialog-button"
+  ),
+  cancelWorkValueDialogButton: document.querySelector(
+    "#cancel-work-value-dialog-button"
+  ),
+  saveWorkValueButton: document.querySelector("#save-work-value-button"),
+  workValueFieldLabel: document.querySelector("#work-value-field-label"),
+  workValueInput: document.querySelector("#work-value-input"),
+  workValueSourceUrlInput: document.querySelector(
+    "#work-value-source-url-input"
+  ),
+  workValueSourceLabelInput: document.querySelector(
+    "#work-value-source-label-input"
+  ),
+  workValueDialogError: document.querySelector("#work-value-dialog-error")
 };
 
 let currentBasis = null;
 let currentTab = null;
 let currentAnalysis = null;
 let currentMemoState = null;
+let currentActiveWorkState = null;
+let currentWorkActivityState = null;
+let currentWidgetPreferences = createDefaultWidgetPreferences();
 let editingMemoId = "";
 let editingMemoFieldKey = "";
 let deletingMemoId = "";
 let memoActionStatus = null;
+let activeWorkActionStatus = null;
 let isAnalyzing = false;
+let isApplyingWidgetPreference = false;
+let isSavingActiveWork = false;
+let isSavingWorkValue = false;
+let editingWorkValueFieldKey = "";
+let workFieldActionStatus = null;
+let workExportStatus = null;
+
+function renderWidgetControl(message = "") {
+  elements.hideKnownWidgetsInput.checked =
+    currentWidgetPreferences.hideKnownWidgets;
+  elements.hideKnownWidgetsInput.disabled = isApplyingWidgetPreference;
+  elements.widgetControlStatus.textContent =
+    message ||
+    (currentWidgetPreferences.hideKnownWidgets
+      ? "확장을 연 웹 페이지에 알려진 위젯 숨김 규칙을 적용합니다."
+      : "상담 위젯 숨김 기능이 꺼져 있습니다.");
+}
+
+async function applyKnownWidgetPreference(tab = currentTab) {
+  const page = inspectTab(tab);
+  if (!Number.isInteger(tab?.id) || !page.accessible) {
+    renderWidgetControl(
+      currentWidgetPreferences.hideKnownWidgets
+        ? "일반 웹 페이지에서 확장을 열면 숨김 규칙을 적용합니다."
+        : "상담 위젯 숨김 기능이 꺼져 있습니다."
+    );
+    return;
+  }
+
+  isApplyingWidgetPreference = true;
+  renderWidgetControl();
+  try {
+    const injection = {
+      target: { tabId: tab.id },
+      css: KNOWN_WIDGET_CSS
+    };
+    if (currentWidgetPreferences.hideKnownWidgets) {
+      try {
+        await chrome.scripting.removeCSS(injection);
+      } catch {
+        // 아직 삽입한 규칙이 없으면 제거할 항목도 없다.
+      }
+      await chrome.scripting.insertCSS(injection);
+    } else {
+      await chrome.scripting.removeCSS(injection);
+    }
+    renderWidgetControl(
+      currentWidgetPreferences.hideKnownWidgets
+        ? "알려진 상담 위젯 숨김 규칙을 현재 탭에 적용했습니다."
+        : "현재 탭의 상담 위젯 숨김 규칙을 해제했습니다."
+    );
+  } catch {
+    renderWidgetControl(
+      "현재 탭에 상담 위젯 설정을 적용하지 못했습니다. 확장 아이콘을 다시 눌러주세요."
+    );
+  } finally {
+    isApplyingWidgetPreference = false;
+    elements.hideKnownWidgetsInput.disabled = false;
+  }
+}
 
 function renderBasis(basis) {
   const formatted = formatBasis(basis);
   elements.basisCycle.textContent = formatted.cycleAndIntake;
   elements.basisMode.textContent = formatted.modeAndFee;
   elements.nonSeptemberWarning.hidden = basis.intakeMonth === 9;
+}
+
+function formatActiveWorkBasis(work) {
+  const formatted = formatBasis(work.basis);
+  return `${formatted.cycleAndIntake} · ${formatted.modeAndFee}`;
+}
+
+function getCurrentAnalysisWorkCandidate() {
+  if (
+    !currentAnalysis ||
+    currentAnalysis.stale ||
+    !currentTab ||
+    currentAnalysis.page.url !== currentTab.url
+  ) {
+    return null;
+  }
+
+  try {
+    return createActiveCourseWorkFromAnalysis(currentAnalysis);
+  } catch {
+    return null;
+  }
+}
+
+function isCurrentAnalysisAlreadyAdded(work) {
+  return Boolean(
+    currentAnalysis &&
+      work?.sourcePages.some(
+        (page) =>
+          page.url === currentAnalysis.page.url &&
+          page.lastAnalyzedAt === currentAnalysis.analyzedAt
+      )
+  );
+}
+
+function renderWorkExport() {
+  const events = currentWorkActivityState?.events ?? [];
+  let summary;
+  try {
+    summary = summarizeWorkActivityFailures(events);
+  } catch {
+    summary = {
+      totalEventCount: 0,
+      failureEventCount: 0,
+      failureGroups: [],
+      adapterCandidates: []
+    };
+  }
+
+  elements.workActivityCount.textContent =
+    `기록 ${summary.totalEventCount}개`;
+  elements.exportActiveWorkJsonButton.disabled =
+    !currentActiveWorkState?.work;
+  elements.exportWorkActivityCsvButton.disabled =
+    !currentWorkActivityState?.persisted || events.length === 0;
+
+  if (summary.failureGroups.length === 0) {
+    elements.workFailureSummaryLabel.textContent = "반복 실패 없음";
+    elements.workFailureSummaryMeta.textContent =
+      currentWorkActivityState?.persisted === false
+        ? "실사용 기록 저장소를 읽지 못해 실패 요약을 표시할 수 없습니다."
+        : "추출 실패가 쌓이면 학교와 항목별로 여기에 표시됩니다.";
+  } else {
+    elements.workFailureSummaryLabel.textContent =
+      `추출 실패 ${summary.failureEventCount}개 · ` +
+      `개선 후보 ${summary.adapterCandidates.length}개`;
+    elements.workFailureSummaryMeta.textContent =
+      "사이트 구조 실패가 3회 이상이고 서로 다른 과정이 2개 이상일 때 adapter 개선 후보로 표시합니다.";
+  }
+
+  if (currentWorkActivityState?.recovered) {
+    elements.workFailureSummaryMeta.textContent +=
+      " 손상된 기록은 요약과 CSV에서 제외했습니다.";
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const group of summary.failureGroups.slice(0, 8)) {
+    const item = document.createElement("li");
+    item.className = "work-failure-summary__item";
+
+    const title = document.createElement("strong");
+    const fieldLabel =
+      FIELDS.find((field) => field.key === group.fieldKey)?.label ??
+      group.fieldKey;
+    title.textContent =
+      `${formatSiteLabel(group.siteKey)} · ` +
+      fieldLabel;
+
+    const counts = document.createElement("span");
+    counts.textContent =
+      `실패 ${group.failureCount}회 · 과정 ${group.courseCount}개`;
+
+    const categories = document.createElement("span");
+    categories.textContent = Object.entries(group.categoryCounts)
+      .filter(([, count]) => count > 0)
+      .map(
+        ([category, count]) =>
+          `${FAILURE_CATEGORY_LABELS[category] ?? category} ${count}`
+      )
+      .join(" · ");
+
+    item.append(title, counts, categories);
+    if (group.adapterCandidate) {
+      const candidate = document.createElement("span");
+      candidate.className = "work-failure-summary__candidate";
+      candidate.textContent = "다음 adapter 개선 후보";
+      item.append(candidate);
+    }
+    fragment.append(item);
+  }
+  elements.workFailureSummaryList.replaceChildren(fragment);
+
+  const status =
+    workExportStatus ??
+    (currentWorkActivityState?.persisted === false
+      ? {
+          message:
+            "실사용 기록을 읽지 못했습니다. CSV 내보내기와 실패 요약을 사용할 수 없습니다.",
+          error: true
+        }
+      : null);
+  elements.workExportStatus.textContent = status?.message ?? "";
+  elements.workExportStatus.classList.toggle(
+    "work-export__status--error",
+    Boolean(status?.error)
+  );
+}
+
+function renderActiveWork() {
+  const state = currentActiveWorkState;
+  const work = state?.work ?? null;
+  const candidate = getCurrentAnalysisWorkCandidate();
+  const status =
+    activeWorkActionStatus ??
+    (state && !state.persisted
+      ? {
+          message:
+            "활성 작업 저장소를 읽지 못했습니다. 기존 작업을 변경하지 않습니다.",
+          error: true
+        }
+      : state?.unsupportedSchema
+        ? {
+            message:
+              "새 버전에서 만든 활성 작업은 현재 버전에서 변경하지 않습니다.",
+            error: true
+          }
+        : state?.quarantined
+          ? {
+              message:
+                "손상된 활성 작업을 격리했습니다. 저장 원본은 덮어쓰지 않았습니다.",
+              error: true
+            }
+          : null);
+
+  if (work) {
+    const summary = summarizeActiveCourseWork(work);
+    elements.activeWorkName.textContent = work.courseName;
+    elements.activeWorkMeta.textContent =
+      `${formatActiveWorkBasis(work)} · 출처 ${summary.sourcePageCount}개 · ` +
+      `저장값 ${summary.capturedEntryCount}개`;
+    elements.activeWorkConflict.hidden =
+      summary.conflictFieldKeys.length === 0;
+    elements.activeWorkConflict.textContent =
+      `충돌 ${summary.conflictFieldKeys.length}개`;
+  } else {
+    elements.activeWorkName.textContent = "저장된 작업 없음";
+    elements.activeWorkMeta.textContent =
+      "현재 분석을 작업으로 저장하면 다른 공식 페이지의 값을 이어서 합칠 수 있습니다.";
+    elements.activeWorkConflict.hidden = true;
+    elements.activeWorkConflict.textContent = "";
+  }
+
+  elements.activeWorkStatus.textContent = status?.message ?? "";
+  elements.activeWorkStatus.classList.toggle(
+    "active-work__status--error",
+    Boolean(status?.error)
+  );
+
+  const storageBlocked = Boolean(
+    !state?.persisted || state.unsupportedSchema || state.quarantined
+  );
+  elements.addToActiveWorkButton.disabled =
+    isSavingActiveWork || storageBlocked || !candidate;
+
+  if (isSavingActiveWork) {
+    elements.addToActiveWorkButton.textContent = "저장 중…";
+  } else if (!candidate) {
+    elements.addToActiveWorkButton.textContent = currentAnalysis?.stale
+      ? "현재 기준으로 다시 분석"
+      : "현재 페이지를 먼저 분석";
+  } else if (!work) {
+    elements.addToActiveWorkButton.textContent = "이 분석으로 작업 시작";
+  } else if (work.id !== candidate.work.id) {
+    elements.addToActiveWorkButton.textContent = "새 작업으로 시작…";
+  } else if (isCurrentAnalysisAlreadyAdded(work)) {
+    elements.addToActiveWorkButton.textContent = "현재 분석 추가됨";
+    elements.addToActiveWorkButton.disabled = true;
+  } else {
+    elements.addToActiveWorkButton.textContent = "현재 분석 추가";
+  }
+  renderWorkExport();
+}
+
+function downloadTextFile({ text, fileName, mimeType }) {
+  const blob = new Blob([text], { type: mimeType });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = fileName;
+  link.hidden = true;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+}
+
+function exportActiveWorkJson() {
+  const work = currentActiveWorkState?.work;
+  if (!work) {
+    return;
+  }
+
+  try {
+    const now = new Date();
+    downloadTextFile({
+      text: serializeActiveCourseWorkJson(work, now),
+      fileName: createExportFilename(
+        `${work.siteKey}-${work.courseKey}-${work.basis.academicCycle}`,
+        "json",
+        now
+      ),
+      mimeType: "application/json;charset=utf-8"
+    });
+    workExportStatus = {
+      message: "활성 과정 작업 JSON 파일을 준비했습니다.",
+      error: false
+    };
+  } catch {
+    workExportStatus = {
+      message: "활성 과정 작업 JSON을 만들지 못했습니다.",
+      error: true
+    };
+  }
+  renderWorkExport();
+}
+
+function exportWorkActivityCsv() {
+  const events = currentWorkActivityState?.events ?? [];
+  if (events.length === 0) {
+    return;
+  }
+
+  try {
+    const now = new Date();
+    downloadTextFile({
+      text: serializeWorkActivityCsv(events),
+      fileName: createExportFilename(
+        "admission-activity-log",
+        "csv",
+        now
+      ),
+      mimeType: "text/csv;charset=utf-8"
+    });
+    workExportStatus = {
+      message: `실사용 기록 ${events.length}개를 CSV 파일로 준비했습니다.`,
+      error: false
+    };
+  } catch {
+    workExportStatus = {
+      message: "실사용 기록 CSV를 만들지 못했습니다.",
+      error: true
+    };
+  }
+  renderWorkExport();
+}
+
+function setActiveWorkReplacing(saving) {
+  elements.confirmActiveWorkReplaceButton.disabled = saving;
+  elements.cancelActiveWorkReplaceButton.disabled = saving;
+  elements.closeActiveWorkReplaceDialogButton.disabled = saving;
+  elements.confirmActiveWorkReplaceButton.textContent = saving
+    ? "교체 중…"
+    : "교체하고 시작";
+}
+
+function closeActiveWorkReplaceDialog() {
+  if (!elements.confirmActiveWorkReplaceButton.disabled) {
+    elements.activeWorkReplaceDialog.close();
+  }
+}
+
+function showActiveWorkReplaceDialog() {
+  const currentWork = currentActiveWorkState?.work;
+  const candidate = getCurrentAnalysisWorkCandidate();
+  if (!currentWork || !candidate || currentWork.id === candidate.work.id) {
+    return;
+  }
+
+  elements.currentActiveWorkName.textContent = currentWork.courseName;
+  elements.currentActiveWorkBasis.textContent =
+    formatActiveWorkBasis(currentWork);
+  elements.nextActiveWorkName.textContent = candidate.work.courseName;
+  elements.nextActiveWorkBasis.textContent =
+    formatActiveWorkBasis(candidate.work);
+  elements.activeWorkReplaceError.textContent = "";
+  elements.activeWorkReplaceDialog.showModal();
+  elements.cancelActiveWorkReplaceButton.focus();
+}
+
+function buildActiveWorkSuccessMessage(result, mode) {
+  if (mode === "created") {
+    const summary = summarizeActiveCourseWork(result.work);
+    return (
+      `활성 작업을 시작했습니다. 출처 ${summary.sourcePageCount}개 · ` +
+      `저장값 ${summary.capturedEntryCount}개`
+    );
+  }
+  if (mode === "replaced") {
+    return "기존 활성 작업을 새 과정 작업으로 교체했습니다.";
+  }
+
+  const changes = [];
+  if (result.addedEntryCount > 0) {
+    changes.push(`새 값 ${result.addedEntryCount}개`);
+  }
+  if (result.addedSourcePageCount > 0) {
+    changes.push(`새 출처 ${result.addedSourcePageCount}개`);
+  }
+  if (result.mergedSourceRefCount > 0) {
+    changes.push(`기존 값 출처 ${result.mergedSourceRefCount}개 추가`);
+  }
+  if (result.conflictFieldKeys.length > 0) {
+    changes.push(`충돌 ${result.conflictFieldKeys.length}개 보존`);
+  }
+  return changes.length > 0
+    ? `현재 분석을 추가했습니다. ${changes.join(" · ")}`
+    : "같은 값은 중복하지 않고 기존 출처를 유지했습니다.";
+}
+
+async function persistCurrentAnalysisToActiveWork({ replace = false } = {}) {
+  const candidate = getCurrentAnalysisWorkCandidate();
+  const currentWork = currentActiveWorkState?.work ?? null;
+  if (!candidate || isSavingActiveWork) {
+    return false;
+  }
+
+  if (currentWork && currentWork.id !== candidate.work.id && !replace) {
+    showActiveWorkReplaceDialog();
+    return false;
+  }
+
+  isSavingActiveWork = true;
+  activeWorkActionStatus = null;
+  renderActiveWork();
+  setActiveWorkReplacing(true);
+
+  let saved = false;
+  try {
+    const mode = !currentWork
+      ? "created"
+      : currentWork.id === candidate.work.id
+        ? "merged"
+        : "replaced";
+    const result =
+      mode === "merged"
+        ? mergeAnalysisIntoActiveCourseWork(currentWork, currentAnalysis)
+        : candidate;
+    const stored = await saveActiveCourseWork(result.work);
+    currentActiveWorkState = {
+      work: stored,
+      recovered: false,
+      quarantined: false,
+      unsupportedSchema: false,
+      persisted: true,
+      error: null
+    };
+    activeWorkActionStatus = {
+      message: buildActiveWorkSuccessMessage(result, mode),
+      error: false
+    };
+    saved = true;
+    await appendAnalysisEvent({
+      type: `active_work_${mode}`,
+      detail:
+        `${stored.siteKey}/${stored.courseKey}/` +
+        `${result.addedEntryCount}/${result.conflictFieldKeys.length}`
+    }).catch(() => {});
+  } catch {
+    activeWorkActionStatus = {
+      message:
+        "활성 작업을 저장하지 못했습니다. 기존 작업은 유지됩니다. 잠시 후 다시 시도해주세요.",
+      error: true
+    };
+    if (elements.activeWorkReplaceDialog.open) {
+      elements.activeWorkReplaceError.textContent =
+        "새 작업을 저장하지 못했습니다. 기존 활성 작업은 유지됩니다.";
+    }
+  } finally {
+    isSavingActiveWork = false;
+    setActiveWorkReplacing(false);
+    renderActiveWork();
+    if (saved) {
+      renderFields();
+    }
+    if (saved && elements.activeWorkReplaceDialog.open) {
+      elements.activeWorkReplaceDialog.close();
+    }
+  }
+  return saved;
+}
+
+function getCurrentWorkFieldContext(fieldKey) {
+  const work = currentActiveWorkState?.work ?? null;
+  const candidate = getCurrentAnalysisWorkCandidate();
+  if (!work || !candidate || work.id !== candidate.work.id) {
+    return null;
+  }
+  const fieldState = work.fieldStates.find(
+    (state) => state.fieldKey === fieldKey
+  );
+  return fieldState ? { work, fieldState } : null;
+}
+
+function setWorkValueSaving(saving) {
+  isSavingWorkValue = saving;
+  elements.saveWorkValueButton.disabled = saving;
+  elements.cancelWorkValueDialogButton.disabled = saving;
+  elements.closeWorkValueDialogButton.disabled = saving;
+  elements.saveWorkValueButton.textContent = saving ? "저장 중…" : "작업 값 저장";
+}
+
+function closeWorkValueDialog() {
+  if (!isSavingWorkValue) {
+    elements.workValueDialog.close();
+  }
+}
+
+function showWorkValueDialog(fieldKey) {
+  const context = getCurrentWorkFieldContext(fieldKey);
+  const field = FIELDS.find((candidate) => candidate.key === fieldKey);
+  if (!context || !field || ["university", "course"].includes(fieldKey)) {
+    return;
+  }
+
+  const selected = getSelectedWorkValueEntry(context.work, fieldKey);
+  const manualEntry =
+    selected?.origin === "manual"
+      ? selected
+      : [...context.fieldState.entries]
+          .reverse()
+          .find((entry) => entry.origin === "manual") ?? null;
+  const source = manualEntry?.sourceRefs?.[0] ?? null;
+  editingWorkValueFieldKey = fieldKey;
+  elements.workValueDialogTitle.textContent = manualEntry
+    ? "활성 작업 값 수정"
+    : "활성 작업 값 직접 입력";
+  elements.workValueFieldLabel.textContent = field.label;
+  elements.workValueInput.value = manualEntry?.value ?? selected?.value ?? "";
+  elements.workValueSourceUrlInput.value = source?.pageUrl ?? "";
+  elements.workValueSourceLabelInput.value = source?.sourceLabel ?? "";
+  elements.workValueDialogError.textContent = "";
+  elements.workValueDialog.showModal();
+  elements.workValueInput.focus();
+}
+
+function getWorkActivityContext(fieldKey) {
+  const work = currentActiveWorkState?.work ?? null;
+  const candidate = getCurrentAnalysisWorkCandidate();
+  const contextWork =
+    work && candidate?.work.id === work.id ? work : candidate?.work ?? work;
+  if (!contextWork) {
+    return null;
+  }
+  return {
+    workId: work?.id === contextWork.id ? work.id : "",
+    siteKey: contextWork.siteKey,
+    courseKey: contextWork.courseKey,
+    fieldKey
+  };
+}
+
+async function appendCopyActivity({
+  fieldKey,
+  succeeded,
+  value,
+  valueOrigin,
+  sourceUrl,
+  detail = ""
+}) {
+  const context = getWorkActivityContext(fieldKey);
+  if (!context) {
+    return true;
+  }
+  const event = createWorkActivityEvent({
+    ...context,
+    type: succeeded
+      ? WORK_ACTIVITY_TYPES.COPY_SUCCEEDED
+      : WORK_ACTIVITY_TYPES.COPY_FAILED,
+    status: succeeded ? EXTRACTION_STATUS.FOUND : "",
+    valueOrigin,
+    sourceUrl,
+    valueSnapshot: value,
+    detail
+  });
+  try {
+    const events = await appendWorkActivityEvents(event);
+    currentWorkActivityState = {
+      events,
+      recovered: false,
+      persisted: true,
+      error: null
+    };
+    renderWorkExport();
+    return true;
+  } catch {
+    workFieldActionStatus = {
+      fieldKey,
+      message: succeeded
+        ? "복사는 완료했지만 실사용 기록을 저장하지 못했습니다."
+        : "복사 실패 기록을 저장하지 못했습니다.",
+      error: true
+    };
+    renderFields();
+    return false;
+  }
+}
+
+function getExtractionFailureLabel(field) {
+  const classification = classifyExtractionResult(field);
+  if (classification.succeeded) {
+    return "";
+  }
+  const labels = {
+    [EXTRACTION_FAILURE_CATEGORIES.SITE_STRUCTURE]: "사이트 구조에서 찾지 못함",
+    [EXTRACTION_FAILURE_CATEGORIES.SEPARATE_PAGE]: "별도 페이지 확인 필요",
+    [EXTRACTION_FAILURE_CATEGORIES.APPLICATION_CHECK]: "지원서 확인 필요"
+  };
+  return labels[classification.failureCategory] ?? "";
+}
+
+async function copySelectedWorkValue(fieldKey, entry, button) {
+  const original = button.textContent;
+  try {
+    await navigator.clipboard.writeText(entry.value);
+    button.textContent = "복사됨";
+    button.classList.add("copy-button--copied");
+    await Promise.all([
+      appendAnalysisEvent({
+        type: "active_work_copy_succeeded",
+        fieldKey
+      }).catch(() => {}),
+      appendCopyActivity({
+        fieldKey,
+        succeeded: true,
+        value: entry.value,
+        valueOrigin: entry.origin,
+        sourceUrl: entry.sourceRefs?.[0]?.pageUrl ?? ""
+      })
+    ]);
+  } catch (error) {
+    button.textContent = "복사 실패";
+    await Promise.all([
+      appendAnalysisEvent({
+        type: "active_work_copy_failed",
+        fieldKey,
+        detail: error?.message || ""
+      }).catch(() => {}),
+      appendCopyActivity({
+        fieldKey,
+        succeeded: false,
+        value: entry.value,
+        valueOrigin: entry.origin,
+        sourceUrl: entry.sourceRefs?.[0]?.pageUrl ?? "",
+        detail: error?.message || ""
+      })
+    ]);
+  } finally {
+    window.setTimeout(() => {
+      button.textContent = original;
+      button.classList.remove("copy-button--copied");
+    }, 1600);
+  }
+}
+
+function createWorkFieldPanel(field) {
+  const context = getCurrentWorkFieldContext(field.key);
+  if (!context) {
+    return null;
+  }
+
+  const selected = getSelectedWorkValueEntry(context.work, field.key);
+  const section = document.createElement("section");
+  section.className = "work-field";
+  section.setAttribute("aria-label", `${field.label} 활성 작업 값`);
+
+  const heading = document.createElement("div");
+  heading.className = "work-field__heading";
+  const title = document.createElement("strong");
+  title.textContent = "활성 작업 값";
+  const origin = document.createElement("span");
+  origin.textContent = selected
+    ? selected.origin === "manual"
+      ? "직접 입력"
+      : "페이지 분석"
+    : "선택 필요";
+  heading.append(title, origin);
+  section.append(heading);
+
+  const value = document.createElement("p");
+  value.className = "work-field__value";
+  value.textContent =
+    selected?.value ||
+    (selected
+      ? "구체적인 값 없이 상태와 사유가 저장되어 있습니다."
+      : "충돌값을 확인하거나 직접 입력해 작업 값을 정해주세요.");
+  section.append(value);
+
+  const actions = document.createElement("div");
+  actions.className = "work-field__actions";
+  if (selected?.value) {
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.className = "copy-button";
+    copyButton.textContent = "작업 값 복사";
+    copyButton.addEventListener("click", () =>
+      copySelectedWorkValue(field.key, selected, copyButton)
+    );
+    actions.append(copyButton);
+  }
+  if (!["university", "course"].includes(field.key)) {
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "button button--compact";
+    editButton.textContent =
+      selected?.origin === "manual" ? "직접 입력값 수정" : "직접 입력";
+    editButton.addEventListener("click", () =>
+      showWorkValueDialog(field.key)
+    );
+    actions.append(editButton);
+  }
+  if (actions.childElementCount > 0) {
+    section.append(actions);
+  }
+
+  if (workFieldActionStatus?.fieldKey === field.key) {
+    const status = document.createElement("p");
+    status.className = `work-field__status${
+      workFieldActionStatus.error ? " work-field__status--error" : ""
+    }`;
+    status.setAttribute("role", "status");
+    status.textContent = workFieldActionStatus.message;
+    section.append(status);
+  }
+  return section;
+}
+
+async function persistWorkValueFromDialog() {
+  const context = getCurrentWorkFieldContext(editingWorkValueFieldKey);
+  const value = elements.workValueInput.value.trim();
+  const sourceUrl = elements.workValueSourceUrlInput.value.trim();
+  const sourceLabel = elements.workValueSourceLabelInput.value.trim();
+  if (!context) {
+    elements.workValueDialogError.textContent =
+      "현재 활성 작업과 페이지가 일치하지 않습니다. 창을 닫고 작업을 다시 확인해주세요.";
+    return;
+  }
+  if (!value) {
+    elements.workValueDialogError.textContent = "작업에 저장할 값을 입력해주세요.";
+    elements.workValueInput.focus();
+    return;
+  }
+  if (
+    sourceUrl &&
+    (() => {
+      try {
+        return new URL(sourceUrl).protocol !== "https:";
+      } catch {
+        return true;
+      }
+    })()
+  ) {
+    elements.workValueDialogError.textContent =
+      "활성 작업 출처는 https:// 주소로 입력해주세요.";
+    elements.workValueSourceUrlInput.focus();
+    return;
+  }
+
+  setWorkValueSaving(true);
+  let saved = false;
+  try {
+    const result = addManualValueToActiveCourseWork(context.work, {
+      fieldKey: editingWorkValueFieldKey,
+      value,
+      sourceUrl,
+      sourceLabel,
+      sourceExcerpt: value
+    });
+    const event = createWorkActivityEvent({
+      workId: result.work.id,
+      siteKey: result.work.siteKey,
+      courseKey: result.work.courseKey,
+      fieldKey: editingWorkValueFieldKey,
+      type:
+        result.mode === "updated"
+          ? WORK_ACTIVITY_TYPES.MANUAL_VALUE_UPDATED
+          : WORK_ACTIVITY_TYPES.MANUAL_VALUE_CREATED,
+      status: EXTRACTION_STATUS.FOUND,
+      valueOrigin: "manual",
+      sourceUrl,
+      valueSnapshot: result.entry.value,
+      previousValueSnapshot: result.previousEntry?.value ?? ""
+    });
+    const stored = await saveActiveCourseWorkWithActivity(
+      result.work,
+      event
+    );
+    currentActiveWorkState = {
+      work: stored.work,
+      recovered: false,
+      quarantined: false,
+      unsupportedSchema: false,
+      persisted: true,
+      error: null
+    };
+    currentWorkActivityState = {
+      events: stored.events,
+      recovered: false,
+      persisted: true,
+      error: null
+    };
+    workFieldActionStatus = {
+      fieldKey: editingWorkValueFieldKey,
+      message:
+        result.mode === "updated"
+          ? "직접 입력값을 수정하고 기록했습니다."
+          : "직접 입력값을 저장하고 기록했습니다.",
+      error: false
+    };
+    renderFields();
+    renderActiveWork();
+    saved = true;
+    await appendAnalysisEvent({
+      type:
+        result.mode === "updated"
+          ? "active_work_manual_updated"
+          : "active_work_manual_created",
+      fieldKey: editingWorkValueFieldKey
+    }).catch(() => {});
+  } catch {
+    elements.workValueDialogError.textContent =
+      "작업 값을 저장하지 못했습니다. 기존 값과 실사용 기록은 유지됩니다.";
+  } finally {
+    setWorkValueSaving(false);
+    if (saved) {
+      elements.workValueDialog.close();
+    }
+  }
 }
 
 function populateBasisForm(basis) {
@@ -372,8 +1320,10 @@ function inspectTab(tab) {
     title: tab.title || "제목 없는 페이지",
     url: tab.url,
     message: analyzable
-      ? `${site.label} 과정 페이지를 분석할 수 있습니다.`
-      : "현재 KCL, SOAS, QMUL 과정 페이지를 지원합니다."
+      ? site.generic
+        ? `${site.label} 페이지를 일반 분석할 수 있습니다. 찾지 못한 항목도 실사용 기록에 남습니다.`
+        : `${site.label} 과정 페이지를 정밀 분석할 수 있습니다.`
+      : "일반 HTTPS 대학 페이지에서 분석할 수 있습니다."
   };
 }
 
@@ -500,17 +1450,36 @@ async function copyField(field, button) {
     await navigator.clipboard.writeText(field.copyText);
     button.textContent = "복사됨";
     button.classList.add("copy-button--copied");
-    await appendAnalysisEvent({
-      type: "copy_succeeded",
-      fieldKey: field.key
-    });
+    await Promise.all([
+      appendAnalysisEvent({
+        type: "copy_succeeded",
+        fieldKey: field.key
+      }).catch(() => {}),
+      appendCopyActivity({
+        fieldKey: field.key,
+        succeeded: true,
+        value: field.copyText,
+        valueOrigin: "analysis",
+        sourceUrl: field.source?.url ?? currentAnalysis?.page?.url ?? ""
+      })
+    ]);
   } catch (error) {
     button.textContent = "복사 실패";
-    await appendAnalysisEvent({
-      type: "copy_failed",
-      fieldKey: field.key,
-      detail: error?.message || ""
-    }).catch(() => {});
+    await Promise.all([
+      appendAnalysisEvent({
+        type: "copy_failed",
+        fieldKey: field.key,
+        detail: error?.message || ""
+      }).catch(() => {}),
+      appendCopyActivity({
+        fieldKey: field.key,
+        succeeded: false,
+        value: field.copyText,
+        valueOrigin: "analysis",
+        sourceUrl: field.source?.url ?? currentAnalysis?.page?.url ?? "",
+        detail: error?.message || ""
+      })
+    ]);
   } finally {
     window.setTimeout(() => {
       button.textContent = original;
@@ -609,17 +1578,36 @@ async function copyCommonMemo(record, button) {
     await navigator.clipboard.writeText(record.value);
     button.textContent = "복사됨";
     button.classList.add("copy-button--copied");
-    await appendAnalysisEvent({
-      type: "common_memo_copy_succeeded",
-      fieldKey: record.fieldKey
-    });
+    await Promise.all([
+      appendAnalysisEvent({
+        type: "common_memo_copy_succeeded",
+        fieldKey: record.fieldKey
+      }).catch(() => {}),
+      appendCopyActivity({
+        fieldKey: record.fieldKey,
+        succeeded: true,
+        value: record.value,
+        valueOrigin: "common_memo",
+        sourceUrl: record.sourceUrl
+      })
+    ]);
   } catch (error) {
     button.textContent = "복사 실패";
-    await appendAnalysisEvent({
-      type: "common_memo_copy_failed",
-      fieldKey: record.fieldKey,
-      detail: error?.message || ""
-    }).catch(() => {});
+    await Promise.all([
+      appendAnalysisEvent({
+        type: "common_memo_copy_failed",
+        fieldKey: record.fieldKey,
+        detail: error?.message || ""
+      }).catch(() => {}),
+      appendCopyActivity({
+        fieldKey: record.fieldKey,
+        succeeded: false,
+        value: record.value,
+        valueOrigin: "common_memo",
+        sourceUrl: record.sourceUrl,
+        detail: error?.message || ""
+      })
+    ]);
   } finally {
     window.setTimeout(() => {
       button.textContent = original;
@@ -1016,6 +2004,22 @@ function renderFields(options = {}) {
         action.textContent = field.nextAction;
         body.append(action);
       }
+
+      if (!options.analyzing && currentAnalysis) {
+        const failureLabel = getExtractionFailureLabel(field);
+        if (failureLabel) {
+          const classification = classifyExtractionResult(field);
+          const failure = document.createElement("p");
+          failure.className = "field-card__failure-kind";
+          failure.textContent = `실패 분류 · ${failureLabel}`;
+          if (classification.reasonCode) {
+            const reason = document.createElement("small");
+            reason.textContent = `reason: ${classification.reasonCode}`;
+            failure.append(reason);
+          }
+          body.append(failure);
+        }
+      }
     }
 
     const directLink = createDirectFieldLink(field);
@@ -1050,6 +2054,11 @@ function renderFields(options = {}) {
     card.append(header, body);
     if (footer.childElementCount > 0) {
       card.append(footer);
+    }
+
+    const workFieldPanel = createWorkFieldPanel(field);
+    if (workFieldPanel) {
+      card.append(workFieldPanel);
     }
 
     const memoStateNotice = createInlineMemoStateNotice(field.key);
@@ -1126,7 +2135,7 @@ function renderAnalysisSummary(message = "") {
     status.className = "analysis-summary__lead";
     status.textContent = inspectTab(currentTab).analyzable
       ? "현재 페이지를 분석해 11개 항목을 채우세요."
-      : "KCL, SOAS, QMUL 과정 페이지에서 분석할 수 있습니다.";
+      : "일반 HTTPS 대학 페이지에서 분석할 수 있습니다.";
     fragment.append(status);
   }
 
@@ -1139,6 +2148,7 @@ function renderAnalysisSummary(message = "") {
 function renderAnalysis(message = "") {
   renderAnalysisSummary(message);
   renderFields();
+  renderActiveWork();
 }
 
 async function analyzeCurrentPage() {
@@ -1158,14 +2168,24 @@ async function analyzeCurrentPage() {
 
   try {
     const site = getSupportedSite(currentTab.url);
-    const reader = PAGE_READERS[site?.key];
+    const reader = PAGE_READERS[site?.readerKey];
     if (!site || !reader) {
-      throw new Error("이 과정 페이지의 분석기를 찾지 못했습니다.");
+      throw new Error("현재 페이지의 분석기를 찾지 못했습니다.");
     }
-    const injectionResults = await chrome.scripting.executeScript({
+    const execution = {
       target: { tabId: currentTab.id },
       func: reader
-    });
+    };
+    if (site.readerKey === "generic") {
+      execution.args = [
+        {
+          siteKey: site.key,
+          universityName: site.universityName,
+          basis: currentBasis
+        }
+      ];
+    }
+    const injectionResults = await chrome.scripting.executeScript(execution);
     const payload = injectionResults?.[0]?.result;
     if (!payload) {
       throw new Error("페이지 분석 결과가 비어 있습니다.");
@@ -1177,11 +2197,34 @@ async function analyzeCurrentPage() {
         : parseCourseSnapshot(payload, currentBasis);
     await saveAnalysis(analysis);
     currentAnalysis = analysis;
+    const candidate = getCurrentAnalysisWorkCandidate();
+    const matchingWork =
+      candidate?.work.id === currentActiveWorkState?.work?.id
+        ? currentActiveWorkState.work
+        : null;
+    try {
+      const events = await appendWorkActivityEvents(
+        createExtractionActivityEvents(analysis, matchingWork)
+      );
+      currentWorkActivityState = {
+        events,
+        recovered: false,
+        persisted: true,
+        error: null
+      };
+      activeWorkActionStatus = null;
+    } catch {
+      activeWorkActionStatus = {
+        message:
+          "분석은 완료했지만 추출 실사용 기록을 저장하지 못했습니다.",
+        error: true
+      };
+    }
     renderAnalysis();
     await appendAnalysisEvent({
       type: "analysis_completed",
       detail: `${analysis.summary.found ?? 0}/${analysis.summary.total}`
-    });
+    }).catch(() => {});
   } catch (error) {
     analysisError = `페이지를 분석하지 못했습니다. ${
       error?.message || "잠시 후 다시 시도하세요."
@@ -1201,9 +2244,12 @@ async function analyzeCurrentPage() {
 async function applyTab(tab, { autoAnalyze = false } = {}) {
   if (currentTab?.url !== tab?.url) {
     memoActionStatus = null;
+    activeWorkActionStatus = null;
+    workFieldActionStatus = null;
   }
   currentTab = tab ?? null;
   renderPage(currentTab);
+  await applyKnownWidgetPreference(currentTab);
 
   if (!currentAnalysis || currentAnalysis.page.url !== currentTab?.url) {
     renderAnalysis();
@@ -1377,6 +2423,17 @@ elements.refreshPageButton.addEventListener("click", () =>
   refreshCurrentPage({ autoAnalyze: false })
 );
 elements.analyzeButton.addEventListener("click", analyzeCurrentPage);
+elements.addToActiveWorkButton.addEventListener("click", () =>
+  persistCurrentAnalysisToActiveWork()
+);
+elements.exportActiveWorkJsonButton.addEventListener(
+  "click",
+  exportActiveWorkJson
+);
+elements.exportWorkActivityCsvButton.addEventListener(
+  "click",
+  exportWorkActivityCsv
+);
 elements.closeMemoDialogButton.addEventListener("click", closeMemoDialog);
 elements.cancelMemoDialogButton.addEventListener("click", closeMemoDialog);
 elements.closeMemoDeleteDialogButton.addEventListener(
@@ -1417,6 +2474,40 @@ elements.memoDeleteDialog.addEventListener("close", () => {
   elements.memoDeleteDialogError.textContent = "";
 });
 
+elements.closeActiveWorkReplaceDialogButton.addEventListener(
+  "click",
+  closeActiveWorkReplaceDialog
+);
+elements.cancelActiveWorkReplaceButton.addEventListener(
+  "click",
+  closeActiveWorkReplaceDialog
+);
+elements.activeWorkReplaceDialog.addEventListener("click", (event) => {
+  if (event.target === elements.activeWorkReplaceDialog) {
+    closeActiveWorkReplaceDialog();
+  }
+});
+elements.activeWorkReplaceDialog.addEventListener("close", () => {
+  elements.activeWorkReplaceError.textContent = "";
+});
+elements.closeWorkValueDialogButton.addEventListener(
+  "click",
+  closeWorkValueDialog
+);
+elements.cancelWorkValueDialogButton.addEventListener(
+  "click",
+  closeWorkValueDialog
+);
+elements.workValueDialog.addEventListener("click", (event) => {
+  if (event.target === elements.workValueDialog) {
+    closeWorkValueDialog();
+  }
+});
+elements.workValueDialog.addEventListener("close", () => {
+  editingWorkValueFieldKey = "";
+  elements.workValueDialogError.textContent = "";
+});
+
 elements.memoForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   elements.memoDialogError.textContent = "";
@@ -1427,6 +2518,39 @@ elements.memoDeleteForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   elements.memoDeleteDialogError.textContent = "";
   await persistMemoDeletion();
+});
+
+elements.activeWorkReplaceForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  elements.activeWorkReplaceError.textContent = "";
+  await persistCurrentAnalysisToActiveWork({ replace: true });
+});
+elements.workValueForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  elements.workValueDialogError.textContent = "";
+  await persistWorkValueFromDialog();
+});
+
+elements.hideKnownWidgetsInput.addEventListener("change", async () => {
+  const previousPreferences = currentWidgetPreferences;
+  const nextPreferences = {
+    ...currentWidgetPreferences,
+    hideKnownWidgets: elements.hideKnownWidgetsInput.checked
+  };
+
+  elements.hideKnownWidgetsInput.disabled = true;
+  try {
+    await saveWidgetPreferences(nextPreferences);
+    currentWidgetPreferences = nextPreferences;
+    await applyKnownWidgetPreference();
+  } catch {
+    currentWidgetPreferences = previousPreferences;
+    renderWidgetControl(
+      "상담 위젯 설정을 저장하지 못했습니다. 기존 설정을 유지합니다."
+    );
+  } finally {
+    elements.hideKnownWidgetsInput.disabled = false;
+  }
 });
 
 elements.basisForm.addEventListener("submit", async (event) => {
@@ -1504,16 +2628,36 @@ for (const month of INTAKE_MONTHS) {
 
 renderFields();
 
-const [appState, analysisState, memoState] = await Promise.all([
-  loadAppState(),
-  loadAnalysisState(),
-  loadCommonMemoState()
-]);
+const [
+  appState,
+  analysisState,
+  memoState,
+  activeWorkState,
+  workActivityState,
+  widgetPreferenceState
+] =
+  await Promise.all([
+    loadAppState(),
+    loadAnalysisState(),
+    loadCommonMemoState(),
+    loadActiveCourseWorkState(),
+    loadWorkActivityLog(),
+    loadWidgetPreferences()
+  ]);
 currentBasis = appState.basis;
 currentAnalysis = analysisState.analysis;
 currentMemoState = memoState;
+currentActiveWorkState = activeWorkState;
+currentWorkActivityState = workActivityState;
+currentWidgetPreferences = widgetPreferenceState.preferences;
 renderBasis(currentBasis);
 renderFields();
+renderActiveWork();
+renderWidgetControl(
+  widgetPreferenceState.persisted
+    ? ""
+    : "설정을 읽지 못해 기본값으로 적용합니다."
+);
 
 if (!appState.persisted) {
   elements.basisStatus.textContent =

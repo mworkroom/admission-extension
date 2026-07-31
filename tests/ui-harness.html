@@ -37,6 +37,16 @@
           <button class="button button--secondary" id="refresh-page-button" type="button">페이지 다시 확인</button>
         </div>
         <div class="page-summary" id="page-summary" aria-live="polite" aria-busy="true"></div>
+        <div class="widget-control">
+          <label class="widget-control__label" for="hide-known-widgets-input">
+            <input id="hide-known-widgets-input" type="checkbox">
+            <span>
+              <strong>상담 위젯 숨기기</strong>
+              <small>Unibuddy 등 확인된 팝업을 현재 탭에서 숨깁니다.</small>
+            </span>
+          </label>
+          <p class="widget-control__status" id="widget-control-status" role="status" aria-live="polite"></p>
+        </div>
       </section>
 
       <section class="content-section result-section" aria-labelledby="result-title">
@@ -51,6 +61,34 @@
           <button class="button button--primary" id="analyze-button" type="button">현재 페이지 분석</button>
         </div>
         <div class="analysis-summary" id="analysis-summary" aria-live="polite"></div>
+        <div class="active-work" id="active-work-panel">
+          <div class="active-work__heading">
+            <div>
+              <p class="active-work__eyebrow">활성 과정 작업</p>
+              <strong id="active-work-name">저장된 작업 없음</strong>
+            </div>
+            <span class="active-work__conflict" id="active-work-conflict" hidden></span>
+          </div>
+          <p class="active-work__meta" id="active-work-meta">현재 분석을 작업으로 저장하면 다른 공식 페이지의 값을 이어서 합칠 수 있습니다.</p>
+          <button class="button button--secondary active-work__button" id="add-to-active-work-button" type="button" disabled>현재 페이지를 먼저 분석</button>
+          <p class="active-work__status" id="active-work-status" role="status" aria-live="polite"></p>
+          <div class="work-export" aria-labelledby="work-export-title">
+            <div class="work-export__heading">
+              <strong id="work-export-title">내보내기와 실패 요약</strong>
+              <span id="work-activity-count">기록 0개</span>
+            </div>
+            <div class="work-export__actions">
+              <button class="button button--compact" id="export-active-work-json-button" type="button" disabled>활성 작업 JSON</button>
+              <button class="button button--compact" id="export-work-activity-csv-button" type="button" disabled>실사용 기록 CSV</button>
+            </div>
+            <details class="work-failure-summary" id="work-failure-summary">
+              <summary id="work-failure-summary-label">반복 실패 없음</summary>
+              <p class="work-failure-summary__meta" id="work-failure-summary-meta"></p>
+              <ol class="work-failure-summary__list" id="work-failure-summary-list"></ol>
+            </details>
+            <p class="work-export__status" id="work-export-status" role="status" aria-live="polite"></p>
+          </div>
+        </div>
         <div class="notice notice--warning stale-notice" id="stale-notice" hidden>
           <span aria-hidden="true">!</span>
           <p>기준이 변경되었습니다. 표시된 값은 이전 기준의 결과이므로 다시 분석하세요.</p>
@@ -167,13 +205,88 @@
       </form>
     </dialog>
 
+    <dialog class="basis-dialog active-work-replace-dialog" id="active-work-replace-dialog" aria-labelledby="active-work-replace-dialog-title">
+      <form id="active-work-replace-form" method="dialog" novalidate>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">다른 작업 확인</p>
+            <h2 id="active-work-replace-dialog-title">활성 작업 교체</h2>
+          </div>
+          <button class="icon-button" id="close-active-work-replace-dialog-button" type="button" aria-label="활성 작업 교체 창 닫기">×</button>
+        </div>
+        <p class="dialog-description">현재 분석은 저장된 활성 작업과 과정 또는 입학 기준이 다릅니다.</p>
+        <div class="active-work-compare" aria-label="교체할 활성 과정 작업 비교">
+          <div>
+            <span>현재 활성 작업</span>
+            <strong id="current-active-work-name"></strong>
+            <small id="current-active-work-basis"></small>
+          </div>
+          <div>
+            <span>새로 시작할 작업</span>
+            <strong id="next-active-work-name"></strong>
+            <small id="next-active-work-basis"></small>
+          </div>
+        </div>
+        <p class="active-work-replace-warning" role="alert">교체하면 현재 활성 작업 대신 새 작업이 저장됩니다. 기존 작업은 자동 복구할 수 없습니다.</p>
+        <p class="form-error" id="active-work-replace-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button class="button button--secondary" id="cancel-active-work-replace-button" type="button">취소</button>
+          <button class="button button--danger" id="confirm-active-work-replace-button" type="submit">교체하고 시작</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="basis-dialog work-value-dialog" id="work-value-dialog" aria-labelledby="work-value-dialog-title">
+      <form id="work-value-form" method="dialog" novalidate>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">활성 과정 작업</p>
+            <h2 id="work-value-dialog-title">활성 작업 값 직접 입력</h2>
+          </div>
+          <button class="icon-button" id="close-work-value-dialog-button" type="button" aria-label="활성 작업 값 입력 창 닫기">×</button>
+        </div>
+        <p class="dialog-description">페이지 분석값은 보존하고, 직접 확인한 값을 새 기록으로 선택합니다.</p>
+        <div class="form-grid">
+          <label class="field-control">
+            <span>항목</span>
+            <strong id="work-value-field-label"></strong>
+          </label>
+          <label class="field-control">
+            <span>직접 확인한 값</span>
+            <textarea id="work-value-input" rows="5" required placeholder="입학요강에 사용할 값을 입력하세요."></textarea>
+          </label>
+          <label class="field-control">
+            <span>출처 URL <small>(선택)</small></span>
+            <input id="work-value-source-url-input" type="url" inputmode="url" placeholder="https://...">
+          </label>
+          <label class="field-control">
+            <span>출처 이름 <small>(선택)</small></span>
+            <input id="work-value-source-label-input" type="text" placeholder="예: 지원서 안내">
+          </label>
+        </div>
+        <p class="form-error" id="work-value-dialog-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button class="button button--secondary" id="cancel-work-value-dialog-button" type="button">취소</button>
+          <button class="button button--primary" id="save-work-value-button" type="submit">작업 값 저장</button>
+        </div>
+      </form>
+    </dialog>
+
     <script type="module">
       const searchParams = new URLSearchParams(location.search);
       const requestedSite = searchParams.get("site") || "kcl";
       const failCommonMemoSet = searchParams.get("memoSet") === "fail";
+      const failActiveWorkSet = searchParams.get("workSet") === "fail";
+      const failManualWorkSet = searchParams.get("manualSet") === "fail";
+      const failActivitySet = searchParams.get("activitySet") === "fail";
       let payload;
-      if (requestedSite === "soas" || requestedSite === "qmul") {
-        payload = await fetch(`./fixtures/${requestedSite}-course-snapshot.json`)
+      if (["soas", "qmul", "manchester", "generic"].includes(requestedSite)) {
+        const fixtureName = requestedSite === "manchester"
+          ? "manchester-masters-snapshot.json"
+          : requestedSite === "generic"
+            ? "generic-university-snapshot.json"
+          : `${requestedSite}-course-snapshot.json`;
+        payload = await fetch(`./fixtures/${fixtureName}`)
           .then((response) => response.json());
       } else {
         const [requirements, fees] = await Promise.all([
@@ -189,6 +302,20 @@
         payload.englishRequirement = "";
       }
       const page = payload.requirements || payload;
+      if (searchParams.get("widget") === "unibuddy") {
+        const widget = document.createElement("div");
+        widget.id = "unibuddy-popcard-wrapper";
+        widget.setAttribute("role", "complementary");
+        widget.setAttribute(
+          "aria-label",
+          "Chat with Postgraduate Taught student on Unibuddy"
+        );
+        widget.style.cssText =
+          "position:fixed;right:16px;bottom:16px;z-index:9999;padding:18px;border-radius:18px;background:#fff;box-shadow:0 4px 20px #0004";
+        widget.innerHTML =
+          '<strong>궁금한 점이 있나요?</strong><iframe id="unibuddy-popcard-iframe" title="Unibuddy Popcard" src="about:blank"></iframe>';
+        document.body.append(widget);
+      }
       const values = requestedSite === "qmul"
         ? {
             commonMemoStore: {
@@ -232,6 +359,98 @@
             }
           }
         : {};
+      if (searchParams.get("activitySummary") === "repeated") {
+        const {
+          EXTRACTION_FAILURE_CATEGORIES,
+          WORK_ACTIVITY_TYPES,
+          createWorkActivityEvent
+        } = await import("../shared/work-activity-log.js");
+        const repeatedFailures = [
+          ["corporate-finance-msc", "2026-07-31T09:00:00.000Z"],
+          ["banking-finance-msc", "2026-07-31T09:05:00.000Z"],
+          ["accounting-finance-msc", "2026-07-31T09:10:00.000Z"]
+        ].map(([courseKey, createdAt]) =>
+          createWorkActivityEvent(
+            {
+              type: WORK_ACTIVITY_TYPES.EXTRACTION_FAILED,
+              siteKey: "qmul",
+              courseKey,
+              fieldKey: "applicationFee",
+              status: "not_found",
+              reasonCode: "not_present",
+              failureCategory:
+                EXTRACTION_FAILURE_CATEGORIES.SITE_STRUCTURE,
+              valueOrigin: "analysis",
+              sourceUrl:
+                "https://www.qmul.ac.uk/postgraduate/taught/coursefinder/",
+              detail: "Application fee를 찾지 못했습니다."
+            },
+            new Date(createdAt)
+          )
+        );
+        const followUpFailures = [
+          createWorkActivityEvent(
+            {
+              type: WORK_ACTIVITY_TYPES.EXTRACTION_FAILED,
+              siteKey: "soas",
+              courseKey: "msc-global-development",
+              fieldKey: "englishRequirements",
+              status: "found",
+              reasonCode: "separate_page_required",
+              failureCategory:
+                EXTRACTION_FAILURE_CATEGORIES.SEPARATE_PAGE,
+              valueOrigin: "analysis",
+              sourceUrl:
+                "https://www.soas.ac.uk/study/find-course/msc-global-development"
+            },
+            new Date("2026-07-31T09:15:00.000Z")
+          ),
+          createWorkActivityEvent(
+            {
+              type: WORK_ACTIVITY_TYPES.EXTRACTION_FAILED,
+              siteKey: "soas",
+              courseKey: "msc-global-development",
+              fieldKey: "sopGuideline",
+              status: "action_required",
+              reasonCode: "guideline_not_provided",
+              failureCategory:
+                EXTRACTION_FAILURE_CATEGORIES.APPLICATION_CHECK,
+              valueOrigin: "analysis",
+              sourceUrl:
+                "https://www.soas.ac.uk/study/find-course/msc-global-development"
+            },
+            new Date("2026-07-31T09:20:00.000Z")
+          )
+        ];
+        values.activeCourseWorkEvents = [
+          ...repeatedFailures,
+          ...followUpFailures
+        ];
+      }
+      if (searchParams.get("activeWork") === "different") {
+        const { createActiveCourseWork } = await import(
+          "../shared/active-course-work.js"
+        );
+        values.activeCourseWork = createActiveCourseWork(
+          {
+            siteKey: "kcl",
+            universityName: "King's College London",
+            courseName: "Nutrition MSc",
+            primaryCourseUrl:
+              "https://www.kcl.ac.uk/study/postgraduate-taught/courses/nutrition-msc/requirements",
+            pageTitle: "Nutrition MSc - Entry Requirements",
+            basis: {
+              academicCycle: "2026/27",
+              intakeMonth: 9,
+              intakeYear: 2026,
+              studyMode: "full-time",
+              feeStatus: "international",
+              updatedAt: "2026-07-31T00:00:00.000Z"
+            }
+          },
+          new Date("2026-07-31T00:00:00.000Z")
+        );
+      }
       if (
         requestedSite === "qmul" &&
         searchParams.get("confirmedMissing") === "applicationFee"
@@ -270,10 +489,30 @@
             },
             async set(next) {
               if (
+                failManualWorkSet &&
+                Object.hasOwn(values, "activeCourseWork") &&
+                Object.hasOwn(next, "activeCourseWork") &&
+                Object.hasOwn(next, "activeCourseWorkEvents")
+              ) {
+                throw new Error("manual active work set failed");
+              }
+              if (
                 failCommonMemoSet &&
                 Object.hasOwn(next, "commonMemoStore")
               ) {
                 throw new Error("common memo set failed");
+              }
+              if (
+                failActiveWorkSet &&
+                Object.hasOwn(next, "activeCourseWork")
+              ) {
+                throw new Error("active work set failed");
+              }
+              if (
+                failActivitySet &&
+                Object.hasOwn(next, "activeCourseWorkEvents")
+              ) {
+                throw new Error("activity log set failed");
               }
               Object.assign(values, next);
             }
@@ -291,6 +530,22 @@
         scripting: {
           async executeScript() {
             return [{ result: payload }];
+          },
+          async insertCSS({ css }) {
+            let style = document.querySelector(
+              "style[data-harness-widget-rule]"
+            );
+            if (!style) {
+              style = document.createElement("style");
+              style.dataset.harnessWidgetRule = "true";
+              document.head.append(style);
+            }
+            style.textContent = css;
+          },
+          async removeCSS() {
+            document
+              .querySelector("style[data-harness-widget-rule]")
+              ?.remove();
           }
         },
         runtime: {
@@ -299,6 +554,34 @@
           }
         }
       };
+      const harnessDownloads = [];
+      const harnessBlobs = new Map();
+      URL.createObjectURL = (blob) => {
+        const objectUrl = `blob:harness-${harnessBlobs.size + 1}`;
+        harnessBlobs.set(objectUrl, blob);
+        return objectUrl;
+      };
+      URL.revokeObjectURL = (objectUrl) => {
+        harnessBlobs.delete(objectUrl);
+      };
+      HTMLAnchorElement.prototype.click = function clickHarnessDownload() {
+        if (!this.download) {
+          return;
+        }
+        const blob = harnessBlobs.get(this.href);
+        const download = {
+          fileName: this.download,
+          mimeType: blob?.type ?? "",
+          size: blob?.size ?? 0,
+          content: ""
+        };
+        harnessDownloads.push(download);
+        void blob?.text().then((content) => {
+          download.content = content;
+        });
+      };
+      globalThis.__harnessValues = values;
+      globalThis.__harnessDownloads = harnessDownloads;
       await import("../sidepanel/sidepanel.js");
     </script>
   </body>

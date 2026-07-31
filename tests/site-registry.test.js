@@ -6,11 +6,11 @@ import {
   isSupportedCourseUrl
 } from "../shared/site-registry.js";
 
-test("KCL·SOAS·QMUL 과정 URL만 해당 어댑터로 연결한다", () => {
+test("알려진 과정 URL은 정밀 adapter로, 그 밖의 HTTPS 페이지는 generic reader로 연결한다", () => {
   assert.equal(
     getSupportedSite(
       "https://www.kcl.ac.uk/study/postgraduate-taught/courses/nutrition-msc/requirements"
-    )?.key,
+    )?.readerKey,
     "kcl"
   );
   assert.equal(
@@ -26,8 +26,32 @@ test("KCL·SOAS·QMUL 과정 URL만 해당 어댑터로 연결한다", () => {
     "qmul"
   );
   assert.equal(
-    isSupportedCourseUrl("https://www.manchester.ac.uk/study/masters/"),
-    false
+    getSupportedSite(
+      "https://www.alliancembs.manchester.ac.uk/study/masters/msc-marketing/entry-requirements/#course-profile"
+    )?.readerKey,
+    "manchester"
   );
+
+  const knownHostGeneric = getSupportedSite(
+    "https://www.alliancembs.manchester.ac.uk/study/masters/masters-entry-requirements/"
+  );
+  assert.equal(knownHostGeneric?.key, "manchester");
+  assert.equal(knownHostGeneric?.readerKey, "generic");
+  assert.equal(knownHostGeneric?.generic, true);
+
+  const unknownUniversity = getSupportedSite(
+    "https://www.bristol.ac.uk/study/postgraduate/taught/msc-marketing/entry-requirements/"
+  );
+  assert.equal(unknownUniversity?.key, "bristol-ac-uk");
+  assert.equal(unknownUniversity?.readerKey, "generic");
+  assert.equal(unknownUniversity?.label, "bristol.ac.uk");
+  assert.equal(isSupportedCourseUrl(unknownUniversity.hostnames[0]), false);
+  assert.equal(
+    isSupportedCourseUrl(
+      "https://www.bristol.ac.uk/study/postgraduate/taught/msc-marketing/"
+    ),
+    true
+  );
+  assert.equal(isSupportedCourseUrl("http://example.ac.uk/course"), false);
   assert.equal(isSupportedCourseUrl("chrome://extensions"), false);
 });
