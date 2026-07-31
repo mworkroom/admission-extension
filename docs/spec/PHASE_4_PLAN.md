@@ -12,9 +12,10 @@
 - P4-3 수정·복사·실패 기록 완료
 - P4-4 내보내기와 반복 실패 요약 완료
 - P4-5 자동 검사·저장 실패·430px 로컬 회귀 완료
+- P4-6 예상하지 못한 문제 자유 기록 완료
 - 미등록 대학 공개 페이지의 generic 분석 경로 완료
-- 현재 확장 버전: `0.13.0`
-- 다음 작업: P4-5 실제 Chrome 수동 검증
+- 현재 확장 버전: `0.14.0`
+- 다음 작업: P4-5·P4-6 실제 Chrome 수동 검증
 
 ---
 
@@ -107,7 +108,23 @@
 - [x] 430px Side Panel UI 회귀
 - [ ] 실제 Chrome에서 여러 페이지 작업과 저장 유지 확인
 
-자동 검사 107개와 430px 로컬 UI harness에서 작업 시작·직접 입력·실사용 기록 저장 실패, 다른 과정 교체 취소·확정, 정밀 adapter 네 학교와 generic 대학의 11개 카드 및 가로 넘침 없음을 확인했다. KCL SOP의 확인된 원문에 `online application form`이 포함되어도 지원서 확인 실패로 잘못 분류하지 않도록 `0.11.1`에서 보강했다. Alliance MBS는 `0.12.0`에서 정밀 adapter를 추가했으며, `0.13.0`에서는 학교 whitelist를 제거하고 나머지 일반 HTTPS 페이지를 generic reader로 연결했다. 실제 Bristol MSc Marketing DOM에서 학교·과정·Entry requirements·영어 안내 링크·국제 학비·CV 판독을 확인했다. 확장 관리 화면과 Side Panel 동작은 자동 제어할 수 없어 `docs/qa/PHASE_4_CHROME_CHECKLIST.md`의 수동 검증이 남아 있다.
+자동 검사 119개와 430px 로컬 UI harness에서 작업 시작·직접 입력·실사용 기록 저장 실패, 다른 과정 교체 취소·확정, 정밀 adapter 네 학교와 generic 대학의 11개 카드 및 가로 넘침 없음을 확인했다. KCL SOP의 확인된 원문에 `online application form`이 포함되어도 지원서 확인 실패로 잘못 분류하지 않도록 `0.11.1`에서 보강했다. Alliance MBS는 `0.12.0`에서 정밀 adapter를 추가했으며, `0.13.0`에서는 학교 whitelist를 제거하고 나머지 일반 HTTPS 페이지를 generic reader로 연결했다. 실제 Bristol MSc Marketing DOM에서 학교·과정·Entry requirements·영어 안내 링크·국제 학비·CV 판독을 확인했다. 확장 관리 화면과 Side Panel 동작은 자동 제어할 수 없어 `docs/qa/PHASE_4_CHROME_CHECKLIST.md`의 수동 검증이 남아 있다.
+
+### P4-6 — 예상하지 못한 문제 자유 기록
+
+- [x] Side Panel 맨 아래의 자유 형식 문제 입력
+- [x] 활성 작업 없이 현재 학교·과정·URL·학년도·시각 자동 연결
+- [x] 최근 문제 기록 조회·수정·삭제
+- [x] 생성·수정·삭제 이력을 실사용 CSV에 포함
+- [x] 문제 레코드와 CSV 이벤트를 한 번의 storage 쓰기로 저장
+- [x] 저장 실패·손상 데이터 보호와 430px 로컬 상호작용 검증
+- [ ] 실제 Chrome에서 저장·재오픈 유지·CSV 확인
+
+앱이 미리 정의하지 못한 예외에 카테고리를 먼저 강제하지 않는다. `issueNoteStore` schema 1에 사용자가 입력한 원문과 페이지 문맥을 최대 500개 보존하고, `activeCourseWorkEvents`에는 `user_issue_created`, `user_issue_updated`, `user_issue_deleted` 이력을 남긴다. 문제 기록은 11개 항목의 추출값·확인 상태·공통 메모를 변경하지 않으며, 활성 작업을 먼저 시작하지 않아도 사용할 수 있다.
+
+문제 레코드와 활동 이벤트는 하나의 `chrome.storage.local.set`으로 함께 저장한다. 어느 저장소든 손상되었거나 쓰기에 실패하면 기존 문제와 활동 기록을 덮어쓰지 않는다. 삭제한 문제는 최근 목록에서는 제거하지만 삭제 시점과 삭제 전 내용은 CSV 이력에 남겨 실사용 문제를 잃지 않는다.
+
+430×900 로컬 Browser harness에서 문제 생성, 최근 목록 표시, 수정, 삭제 확인 dialog, 삭제 후 목록 제거, CSV 버튼 활성화와 저장 실패 보호를 확인했다. body와 document 가로 폭은 415px로 430px viewport를 넘지 않았고 콘솔 오류·경고가 없었다. 이는 로컬 harness 검증이며 실제 Chrome 확장 Side Panel 확인으로 간주하지 않는다.
 
 ---
 
@@ -116,6 +133,7 @@
 - 한 과정의 여러 공식 페이지 결과를 출처와 함께 하나의 활성 작업에 합친다.
 - 충돌값을 자동 선택하지 않고 비교 상태로 보존한다.
 - 직접 입력, 수정, 복사와 실패가 실제 사용 흐름에서 자동 기록된다.
+- 미리 분류하지 못한 문제도 현재 페이지 문맥과 함께 자유롭게 기록하고 CSV로 검토할 수 있다.
 - 반복 실패를 학교·항목·원인별로 확인해 다음 개선 대상을 결정할 수 있다.
 - 손상 데이터와 저장 실패가 기존 작업을 훼손하지 않는다.
 - 권한을 추가하지 않고 정밀 adapter와 미등록 대학 generic 경로의 자동·430px·실제 Chrome 검증을 통과한다.

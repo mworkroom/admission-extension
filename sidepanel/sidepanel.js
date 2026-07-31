@@ -6,6 +6,7 @@ import {
 import {
   addManualValueToActiveCourseWork,
   createActiveCourseWorkFromAnalysis,
+  deriveCourseKeyFromUrl,
   getSelectedWorkValueEntry,
   loadActiveCourseWorkState,
   mergeAnalysisIntoActiveCourseWork,
@@ -63,6 +64,14 @@ import {
   serializeWorkActivityCsv,
   summarizeWorkActivityFailures
 } from "../shared/work-export.js";
+import {
+  createIssueNoteRecord,
+  deleteIssueNoteRecord,
+  loadIssueNoteState,
+  saveIssueNoteStoreWithActivity,
+  updateIssueNoteRecord,
+  upsertIssueNoteRecord
+} from "../shared/issue-notes.js";
 import { readKclPage } from "../content/read-kcl-page.js";
 import { readGenericPage } from "../content/read-generic-page.js";
 import { readManchesterPage } from "../content/read-manchester-page.js";
@@ -268,7 +277,31 @@ const elements = {
   workValueSourceLabelInput: document.querySelector(
     "#work-value-source-label-input"
   ),
-  workValueDialogError: document.querySelector("#work-value-dialog-error")
+  workValueDialogError: document.querySelector("#work-value-dialog-error"),
+  issueForm: document.querySelector("#issue-form"),
+  issueContext: document.querySelector("#issue-context"),
+  issueNoteInput: document.querySelector("#issue-note-input"),
+  saveIssueButton: document.querySelector("#save-issue-button"),
+  cancelIssueEditButton: document.querySelector(
+    "#cancel-issue-edit-button"
+  ),
+  issueStatus: document.querySelector("#issue-status"),
+  issueNoteCount: document.querySelector("#issue-note-count"),
+  issueHistoryEmpty: document.querySelector("#issue-history-empty"),
+  issueNoteList: document.querySelector("#issue-note-list"),
+  issueDeleteDialog: document.querySelector("#issue-delete-dialog"),
+  issueDeleteForm: document.querySelector("#issue-delete-form"),
+  issueDeleteValue: document.querySelector("#issue-delete-value"),
+  issueDeleteError: document.querySelector("#issue-delete-error"),
+  closeIssueDeleteDialogButton: document.querySelector(
+    "#close-issue-delete-dialog-button"
+  ),
+  cancelIssueDeleteButton: document.querySelector(
+    "#cancel-issue-delete-button"
+  ),
+  confirmIssueDeleteButton: document.querySelector(
+    "#confirm-issue-delete-button"
+  )
 };
 
 let currentBasis = null;
@@ -277,6 +310,7 @@ let currentAnalysis = null;
 let currentMemoState = null;
 let currentActiveWorkState = null;
 let currentWorkActivityState = null;
+let currentIssueNoteState = null;
 let currentWidgetPreferences = createDefaultWidgetPreferences();
 let editingMemoId = "";
 let editingMemoFieldKey = "";
@@ -290,6 +324,10 @@ let isSavingWorkValue = false;
 let editingWorkValueFieldKey = "";
 let workFieldActionStatus = null;
 let workExportStatus = null;
+let editingIssueNoteId = "";
+let deletingIssueNoteId = "";
+let issueActionStatus = null;
+let isSavingIssueNote = false;
 
 function renderWidgetControl(message = "") {
   elements.hideKnownWidgetsInput.checked =
@@ -478,6 +516,186 @@ function renderWorkExport() {
   );
 }
 
+function getCurrentIssueContext() {
+  const page = inspectTab(currentTab);
+  const site = page.analyzable ? getSupportedSite(page.url) : null;
+  if (!site || !currentBasis) {
+    return null;
+  }
+
+  const analysisMatchesPage =
+    currentAnalysis?.page?.url === page.url && !currentAnalysis.stale;
+  const candidate = analysisMatchesPage
+    ? getCurrentAnalysisWorkCandidate()
+    : null;
+  const courseKey =
+    candidate?.work?.courseKey ||
+    deriveCourseKeyFromUrl(site.key, page.url);
+  const universityName = analysisMatchesPage
+    ? getCurrentUniversityName()
+    : site.universityName;
+  const courseName = analysisMatchesPage
+    ? getCurrentAnalysisField("course")?.value
+    : "";
+  const activeWork =
+    currentActiveWorkState?.work &&
+    candidate?.work?.id === currentActiveWorkState.work.id
+      ? currentActiveWorkState.work
+      : null;
+
+  return {
+    workId: activeWork?.id ?? "",
+    siteKey: site.key,
+    courseKey,
+    universityName: universityName || site.label,
+    courseName: courseName || currentTab.title || "현재 페이지",
+    academicCycle: currentBasis.academicCycle,
+    sourceUrl: page.url
+  };
+}
+
+function canPersistIssueNotes() {
+  return Boolean(
+    currentIssueNoteState?.persisted &&
+      !currentIssueNoteState.unsupportedSchema &&
+      currentIssueNoteState.invalidRecordCount === 0 &&
+      currentWorkActivityState?.persisted &&
+      !currentWorkActivityState.recovered
+  );
+}
+
+function resetIssueEditor({ keepStatus = false } = {}) {
+  editingIssueNoteId = "";
+  elements.issueNoteInput.value = "";
+  elements.cancelIssueEditButton.hidden = true;
+  elements.saveIssueButton.textContent = "문제 기록 저장";
+  if (!keepStatus) {
+    issueActionStatus = null;
+  }
+}
+
+function beginIssueEdit(recordId) {
+  const record = currentIssueNoteState?.store.records.find(
+    (item) => item.id === recordId
+  );
+  if (!record || !canPersistIssueNotes()) {
+    return;
+  }
+  editingIssueNoteId = record.id;
+  issueActionStatus = null;
+  elements.issueNoteInput.value = record.note;
+  elements.cancelIssueEditButton.hidden = false;
+  elements.saveIssueButton.textContent = "수정 저장";
+  renderIssueNotes();
+  elements.issueNoteInput.focus();
+}
+
+function showIssueDeleteDialog(recordId) {
+  const record = currentIssueNoteState?.store.records.find(
+    (item) => item.id === recordId
+  );
+  if (!record || !canPersistIssueNotes()) {
+    return;
+  }
+  deletingIssueNoteId = record.id;
+  elements.issueDeleteValue.textContent = record.note;
+  elements.issueDeleteError.textContent = "";
+  elements.issueDeleteDialog.showModal();
+  elements.cancelIssueDeleteButton.focus();
+}
+
+function closeIssueDeleteDialog() {
+  if (!isSavingIssueNote) {
+    elements.issueDeleteDialog.close();
+  }
+}
+
+function renderIssueNotes() {
+  const context = getCurrentIssueContext();
+  const records = [...(currentIssueNoteState?.store.records ?? [])].sort(
+    (left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)
+  );
+  const storageReady = canPersistIssueNotes();
+  const canCreate = Boolean(context && storageReady);
+  const canEdit = Boolean(editingIssueNoteId && storageReady);
+
+  elements.issueContext.textContent = context
+    ? `${context.universityName} · ${context.courseName} · ${context.academicCycle}`
+    : "일반 HTTPS 대학 페이지에서 현재 페이지 정보를 함께 기록할 수 있습니다.";
+  elements.issueNoteInput.disabled =
+    isSavingIssueNote || (!canCreate && !canEdit);
+  elements.saveIssueButton.disabled =
+    isSavingIssueNote || (!canCreate && !canEdit);
+  elements.cancelIssueEditButton.disabled = isSavingIssueNote;
+  elements.issueNoteCount.textContent = `${records.length}개`;
+  elements.issueHistoryEmpty.hidden = records.length > 0;
+
+  const fragment = document.createDocumentFragment();
+  for (const record of records.slice(0, 8)) {
+    const item = document.createElement("li");
+    item.className = "issue-note";
+
+    const note = document.createElement("p");
+    note.className = "issue-note__text";
+    note.textContent = record.note;
+
+    const meta = document.createElement("p");
+    meta.className = "issue-note__meta";
+    meta.textContent =
+      `${record.universityName || formatSiteLabel(record.siteKey)} · ` +
+      `${record.courseName || record.courseKey || "페이지"} · ` +
+      `${record.academicCycle} · ` +
+      new Date(record.updatedAt).toLocaleString("ko-KR");
+
+    const source = document.createElement("a");
+    source.className = "issue-note__source";
+    source.href = record.sourceUrl;
+    source.target = "_blank";
+    source.rel = "noreferrer";
+    source.textContent = "기록한 페이지 열기";
+
+    const actions = document.createElement("div");
+    actions.className = "issue-note__actions";
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "button button--compact";
+    editButton.textContent =
+      editingIssueNoteId === record.id ? "수정 중" : "수정";
+    editButton.disabled = !storageReady || editingIssueNoteId === record.id;
+    editButton.addEventListener("click", () => beginIssueEdit(record.id));
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "button button--compact issue-note__delete";
+    deleteButton.textContent = "삭제";
+    deleteButton.disabled = !storageReady;
+    deleteButton.addEventListener("click", () =>
+      showIssueDeleteDialog(record.id)
+    );
+    actions.append(editButton, deleteButton);
+    item.append(note, meta, source, actions);
+    fragment.append(item);
+  }
+  elements.issueNoteList.replaceChildren(fragment);
+
+  const storageStatus =
+    currentIssueNoteState?.persisted === false
+      ? "문제 기록 저장소를 읽지 못했습니다."
+      : currentIssueNoteState?.unsupportedSchema
+        ? "더 최신 버전의 문제 기록이 있어 현재 버전에서는 수정할 수 없습니다."
+        : currentIssueNoteState?.invalidRecordCount > 0
+          ? "손상된 문제 기록을 격리했습니다. 저장 원본은 덮어쓰지 않습니다."
+          : currentWorkActivityState?.recovered
+            ? "손상된 실사용 기록이 있어 문제 기록을 추가할 수 없습니다."
+            : "";
+  elements.issueStatus.textContent =
+    issueActionStatus?.message || storageStatus;
+  elements.issueStatus.classList.toggle(
+    "issue-status--error",
+    Boolean(issueActionStatus?.error || storageStatus)
+  );
+}
+
 function renderActiveWork() {
   const state = currentActiveWorkState;
   const work = state?.work ?? null;
@@ -624,6 +842,181 @@ function exportWorkActivityCsv() {
     };
   }
   renderWorkExport();
+}
+
+function createIssueActivityEvent({
+  type,
+  record,
+  previousNote = ""
+}) {
+  return createWorkActivityEvent({
+    type,
+    workId: record.workId,
+    siteKey: record.siteKey,
+    courseKey: record.courseKey,
+    fieldKey: "",
+    reasonCode: "user_reported_issue",
+    valueOrigin: "user",
+    sourceUrl: record.sourceUrl,
+    valueSnapshot:
+      type === WORK_ACTIVITY_TYPES.ISSUE_DELETED ? "" : record.note,
+    previousValueSnapshot:
+      type === WORK_ACTIVITY_TYPES.ISSUE_DELETED
+        ? record.note
+        : previousNote,
+    detail:
+      `${record.academicCycle} · ` +
+      `${record.universityName} · ${record.courseName}`
+  });
+}
+
+async function persistIssueNote() {
+  const note = elements.issueNoteInput.value.trim();
+  const context = getCurrentIssueContext();
+  const currentStore = currentIssueNoteState?.store;
+  const currentRecord = editingIssueNoteId
+    ? currentStore?.records.find(
+        (record) => record.id === editingIssueNoteId
+      )
+    : null;
+  if (
+    isSavingIssueNote ||
+    !canPersistIssueNotes() ||
+    !currentStore ||
+    (!currentRecord && !context)
+  ) {
+    return;
+  }
+  if (!note) {
+    issueActionStatus = {
+      message: "발견한 문제를 입력해주세요.",
+      error: true
+    };
+    renderIssueNotes();
+    elements.issueNoteInput.focus();
+    return;
+  }
+
+  isSavingIssueNote = true;
+  issueActionStatus = null;
+  renderIssueNotes();
+  let saved = false;
+  try {
+    const record = currentRecord
+      ? updateIssueNoteRecord(currentRecord, note)
+      : createIssueNoteRecord({ ...context, note });
+    const nextStore = upsertIssueNoteRecord(currentStore, record);
+    const type = currentRecord
+      ? WORK_ACTIVITY_TYPES.ISSUE_UPDATED
+      : WORK_ACTIVITY_TYPES.ISSUE_CREATED;
+    const event = createIssueActivityEvent({
+      type,
+      record,
+      previousNote: currentRecord?.note ?? ""
+    });
+    const stored = await saveIssueNoteStoreWithActivity(nextStore, event);
+    currentIssueNoteState = {
+      store: stored.store,
+      persisted: true,
+      recovered: false,
+      unsupportedSchema: false,
+      invalidRecordCount: 0,
+      error: null
+    };
+    currentWorkActivityState = {
+      events: stored.events,
+      recovered: false,
+      persisted: true,
+      error: null
+    };
+    issueActionStatus = {
+      message: currentRecord
+        ? "문제 기록을 수정하고 CSV 이력에 남겼습니다."
+        : "문제 기록을 저장하고 CSV 이력에 남겼습니다.",
+      error: false
+    };
+    saved = true;
+    await appendAnalysisEvent({
+      type: currentRecord ? "issue_note_updated" : "issue_note_created",
+      detail: record.id
+    }).catch(() => {});
+  } catch {
+    issueActionStatus = {
+      message:
+        "문제 기록을 저장하지 못했습니다. 기존 기록은 유지됩니다. 잠시 후 다시 시도해주세요.",
+      error: true
+    };
+  } finally {
+    isSavingIssueNote = false;
+    if (saved) {
+      resetIssueEditor({ keepStatus: true });
+    }
+    renderIssueNotes();
+    renderWorkExport();
+  }
+}
+
+async function persistIssueDeletion() {
+  const record = currentIssueNoteState?.store.records.find(
+    (item) => item.id === deletingIssueNoteId
+  );
+  if (!record || isSavingIssueNote || !canPersistIssueNotes()) {
+    return;
+  }
+
+  isSavingIssueNote = true;
+  elements.confirmIssueDeleteButton.disabled = true;
+  elements.cancelIssueDeleteButton.disabled = true;
+  elements.closeIssueDeleteDialogButton.disabled = true;
+  elements.confirmIssueDeleteButton.textContent = "삭제 중…";
+  try {
+    const nextStore = deleteIssueNoteRecord(
+      currentIssueNoteState.store,
+      record.id
+    );
+    const event = createIssueActivityEvent({
+      type: WORK_ACTIVITY_TYPES.ISSUE_DELETED,
+      record
+    });
+    const stored = await saveIssueNoteStoreWithActivity(nextStore, event);
+    currentIssueNoteState = {
+      store: stored.store,
+      persisted: true,
+      recovered: false,
+      unsupportedSchema: false,
+      invalidRecordCount: 0,
+      error: null
+    };
+    currentWorkActivityState = {
+      events: stored.events,
+      recovered: false,
+      persisted: true,
+      error: null
+    };
+    if (editingIssueNoteId === record.id) {
+      resetIssueEditor({ keepStatus: true });
+    }
+    issueActionStatus = {
+      message: "문제 기록을 삭제하고 CSV 이력에 남겼습니다.",
+      error: false
+    };
+    await appendAnalysisEvent({
+      type: "issue_note_deleted",
+      detail: record.id
+    }).catch(() => {});
+    elements.issueDeleteDialog.close();
+  } catch {
+    elements.issueDeleteError.textContent =
+      "문제 기록을 삭제하지 못했습니다. 기존 기록은 유지됩니다.";
+  } finally {
+    isSavingIssueNote = false;
+    elements.confirmIssueDeleteButton.disabled = false;
+    elements.cancelIssueDeleteButton.disabled = false;
+    elements.closeIssueDeleteDialogButton.disabled = false;
+    elements.confirmIssueDeleteButton.textContent = "삭제";
+    renderIssueNotes();
+    renderWorkExport();
+  }
 }
 
 function setActiveWorkReplacing(saving) {
@@ -2149,6 +2542,7 @@ function renderAnalysis(message = "") {
   renderAnalysisSummary(message);
   renderFields();
   renderActiveWork();
+  renderIssueNotes();
 }
 
 async function analyzeCurrentPage() {
@@ -2246,6 +2640,7 @@ async function applyTab(tab, { autoAnalyze = false } = {}) {
     memoActionStatus = null;
     activeWorkActionStatus = null;
     workFieldActionStatus = null;
+    resetIssueEditor();
   }
   currentTab = tab ?? null;
   renderPage(currentTab);
@@ -2434,6 +2829,36 @@ elements.exportWorkActivityCsvButton.addEventListener(
   "click",
   exportWorkActivityCsv
 );
+elements.issueForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await persistIssueNote();
+});
+elements.cancelIssueEditButton.addEventListener("click", () => {
+  resetIssueEditor();
+  renderIssueNotes();
+});
+elements.closeIssueDeleteDialogButton.addEventListener(
+  "click",
+  closeIssueDeleteDialog
+);
+elements.cancelIssueDeleteButton.addEventListener(
+  "click",
+  closeIssueDeleteDialog
+);
+elements.issueDeleteDialog.addEventListener("click", (event) => {
+  if (event.target === elements.issueDeleteDialog) {
+    closeIssueDeleteDialog();
+  }
+});
+elements.issueDeleteDialog.addEventListener("close", () => {
+  deletingIssueNoteId = "";
+  elements.issueDeleteError.textContent = "";
+});
+elements.issueDeleteForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  elements.issueDeleteError.textContent = "";
+  await persistIssueDeletion();
+});
 elements.closeMemoDialogButton.addEventListener("click", closeMemoDialog);
 elements.cancelMemoDialogButton.addEventListener("click", closeMemoDialog);
 elements.closeMemoDeleteDialogButton.addEventListener(
@@ -2634,6 +3059,7 @@ const [
   memoState,
   activeWorkState,
   workActivityState,
+  issueNoteState,
   widgetPreferenceState
 ] =
   await Promise.all([
@@ -2642,6 +3068,7 @@ const [
     loadCommonMemoState(),
     loadActiveCourseWorkState(),
     loadWorkActivityLog(),
+    loadIssueNoteState(),
     loadWidgetPreferences()
   ]);
 currentBasis = appState.basis;
@@ -2649,6 +3076,7 @@ currentAnalysis = analysisState.analysis;
 currentMemoState = memoState;
 currentActiveWorkState = activeWorkState;
 currentWorkActivityState = workActivityState;
+currentIssueNoteState = issueNoteState;
 currentWidgetPreferences = widgetPreferenceState.preferences;
 renderBasis(currentBasis);
 renderFields();

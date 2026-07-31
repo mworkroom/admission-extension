@@ -16,7 +16,10 @@ export const WORK_ACTIVITY_TYPES = Object.freeze({
   MANUAL_VALUE_CREATED: "manual_value_created",
   MANUAL_VALUE_UPDATED: "manual_value_updated",
   COPY_SUCCEEDED: "field_copy_succeeded",
-  COPY_FAILED: "field_copy_failed"
+  COPY_FAILED: "field_copy_failed",
+  ISSUE_CREATED: "user_issue_created",
+  ISSUE_UPDATED: "user_issue_updated",
+  ISSUE_DELETED: "user_issue_deleted"
 });
 
 export const EXTRACTION_FAILURE_CATEGORIES = Object.freeze({
@@ -32,6 +35,11 @@ const FAILURE_CATEGORY_VALUES = Object.freeze(
   Object.values(EXTRACTION_FAILURE_CATEGORIES)
 );
 const FIELD_KEYS = Object.freeze(FIELDS.map((field) => field.key));
+const ISSUE_ACTIVITY_TYPES = Object.freeze([
+  WORK_ACTIVITY_TYPES.ISSUE_CREATED,
+  WORK_ACTIVITY_TYPES.ISSUE_UPDATED,
+  WORK_ACTIVITY_TYPES.ISSUE_DELETED
+]);
 
 function normalizeText(value, maxLength = 1000) {
   return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, maxLength);
@@ -128,8 +136,11 @@ export function createWorkActivityEvent(input, now = new Date()) {
     failureCategory: normalizeText(input?.failureCategory, 80),
     valueOrigin: normalizeText(input?.valueOrigin, 80),
     sourceUrl: normalizeText(input?.sourceUrl, 1000),
-    valueSnapshot: normalizeText(input?.valueSnapshot),
-    previousValueSnapshot: normalizeText(input?.previousValueSnapshot),
+    valueSnapshot: normalizeText(input?.valueSnapshot, 2000),
+    previousValueSnapshot: normalizeText(
+      input?.previousValueSnapshot,
+      2000
+    ),
     detail: normalizeText(input?.detail, 300),
     createdAt
   };
@@ -146,6 +157,7 @@ export function createWorkActivityEvent(input, now = new Date()) {
 }
 
 export function isValidWorkActivityEvent(value) {
+  const isIssueActivity = ISSUE_ACTIVITY_TYPES.includes(value?.type);
   return Boolean(
     value &&
       typeof value === "object" &&
@@ -155,7 +167,9 @@ export function isValidWorkActivityEvent(value) {
       ACTIVITY_TYPE_VALUES.includes(value.type) &&
       /^[a-z0-9-]+$/.test(value.siteKey) &&
       typeof value.courseKey === "string" &&
-      FIELD_KEYS.includes(value.fieldKey) &&
+      (isIssueActivity
+        ? value.fieldKey === ""
+        : FIELD_KEYS.includes(value.fieldKey)) &&
       (value.status === "" || isExtractionStatus(value.status)) &&
       typeof value.reasonCode === "string" &&
       (value.failureCategory === "" ||

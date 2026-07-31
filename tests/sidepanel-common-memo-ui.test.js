@@ -9,10 +9,9 @@ const sidepanelHtmlUrl = new URL(
 const sidepanelJsUrl = new URL("../sidepanel/sidepanel.js", import.meta.url);
 const sidepanelCssUrl = new URL("../sidepanel/sidepanel.css", import.meta.url);
 
-test("공통 메모를 별도 03 섹션으로 분리하지 않는다", async () => {
+test("공통 메모를 별도 전용 섹션으로 분리하지 않는다", async () => {
   const html = await readFile(sidepanelHtmlUrl, "utf8");
 
-  assert.doesNotMatch(html, /<p class="section-number">03<\/p>/);
   assert.doesNotMatch(html, /id="memo-title"/);
   assert.doesNotMatch(html, /id="memo-list"/);
 });

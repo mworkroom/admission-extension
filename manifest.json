@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Admission Checklist",
   "description": "입학요강의 핵심 11개 항목을 현재 페이지에서 확인하고 출처와 함께 정리합니다.",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "minimum_chrome_version": "116",
   "icons": {
 		"128": "icon128.png"

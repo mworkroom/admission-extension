@@ -96,6 +96,39 @@
         <ol class="field-list" id="field-list"></ol>
       </section>
 
+      <section class="content-section issue-section" aria-labelledby="issue-title">
+        <div class="section-heading">
+          <div class="section-heading__copy">
+            <p class="section-number">03</p>
+            <div>
+              <h2 id="issue-title">문제 기록</h2>
+              <p class="section-description">앱이 예상하지 못한 누락이나 잘못된 추출을 자유롭게 남깁니다.</p>
+            </div>
+          </div>
+        </div>
+        <form class="issue-form" id="issue-form" novalidate>
+          <p class="issue-context" id="issue-context">현재 페이지 정보를 확인하고 있습니다.</p>
+          <label class="field-control" for="issue-note-input">
+            <span>발견한 문제</span>
+            <textarea id="issue-note-input" rows="4" maxlength="2000" placeholder="예: 여러 마감일 중 첫 날짜만 추출됨. 표 전체 확인 필요." required></textarea>
+            <small>학교·과정·현재 URL·학년도·기록 시각은 자동으로 함께 저장됩니다.</small>
+          </label>
+          <div class="issue-form__actions">
+            <button class="button button--secondary" id="cancel-issue-edit-button" type="button" hidden>수정 취소</button>
+            <button class="button button--primary" id="save-issue-button" type="submit">문제 기록 저장</button>
+          </div>
+          <p class="issue-status" id="issue-status" role="status" aria-live="polite"></p>
+        </form>
+        <div class="issue-history" aria-labelledby="issue-history-title">
+          <div class="issue-history__heading">
+            <strong id="issue-history-title">최근 문제 기록</strong>
+            <span id="issue-note-count">0개</span>
+          </div>
+          <p class="issue-history__empty" id="issue-history-empty">아직 저장한 문제 기록이 없습니다.</p>
+          <ol class="issue-note-list" id="issue-note-list"></ol>
+        </div>
+      </section>
+
     </main>
 
     <dialog class="basis-dialog" id="basis-dialog" aria-labelledby="dialog-title">
@@ -272,6 +305,25 @@
       </form>
     </dialog>
 
+    <dialog class="basis-dialog issue-delete-dialog" id="issue-delete-dialog" aria-labelledby="issue-delete-dialog-title">
+      <form id="issue-delete-form" method="dialog" novalidate>
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">삭제 전 확인</p>
+            <h2 id="issue-delete-dialog-title">문제 기록 삭제</h2>
+          </div>
+          <button class="icon-button" id="close-issue-delete-dialog-button" type="button" aria-label="문제 기록 삭제 창 닫기">×</button>
+        </div>
+        <p class="dialog-description">목록에서는 제거되지만 삭제 이력은 실사용 기록 CSV에 남습니다.</p>
+        <p class="issue-delete-value" id="issue-delete-value"></p>
+        <p class="form-error" id="issue-delete-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button class="button button--secondary" id="cancel-issue-delete-button" type="button">취소</button>
+          <button class="button button--danger" id="confirm-issue-delete-button" type="submit">삭제</button>
+        </div>
+      </form>
+    </dialog>
+
     <script type="module">
       const searchParams = new URLSearchParams(location.search);
       const requestedSite = searchParams.get("site") || "kcl";
@@ -279,6 +331,7 @@
       const failActiveWorkSet = searchParams.get("workSet") === "fail";
       const failManualWorkSet = searchParams.get("manualSet") === "fail";
       const failActivitySet = searchParams.get("activitySet") === "fail";
+      const failIssueSet = searchParams.get("issueSet") === "fail";
       let payload;
       if (["soas", "qmul", "manchester", "generic"].includes(requestedSite)) {
         const fixtureName = requestedSite === "manchester"
@@ -359,6 +412,26 @@
             }
           }
         : {};
+      if (searchParams.get("issueNote") === "sample") {
+        const { createIssueNoteRecord, upsertIssueNoteRecord } =
+          await import("../shared/issue-notes.js");
+        values.issueNoteStore = upsertIssueNoteRecord(
+          { schemaVersion: 1, records: [] },
+          createIssueNoteRecord(
+            {
+              siteKey: requestedSite,
+              courseKey: "sample-course",
+              universityName: page.universityName || page.title,
+              courseName: page.courseName || page.title,
+              academicCycle: "2026/27",
+              sourceUrl: page.url,
+              note:
+                "여러 마감일 중 첫 날짜만 추출됨. 표 전체 확인 필요."
+            },
+            new Date("2026-07-31T15:00:00.000Z")
+          )
+        );
+      }
       if (searchParams.get("activitySummary") === "repeated") {
         const {
           EXTRACTION_FAILURE_CATEGORIES,
@@ -488,6 +561,13 @@
               );
             },
             async set(next) {
+              if (
+                failIssueSet &&
+                Object.hasOwn(next, "issueNoteStore") &&
+                Object.hasOwn(next, "activeCourseWorkEvents")
+              ) {
+                throw new Error("issue note set failed");
+              }
               if (
                 failManualWorkSet &&
                 Object.hasOwn(values, "activeCourseWork") &&

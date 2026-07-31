@@ -111,6 +111,60 @@ test("실사용 기록 CSV는 BOM, 고정 열과 따옴표 escaping을 사용한
   assert.equal(csv.endsWith("\r\n"), true);
 });
 
+test("자유 형식 문제 생성·수정·삭제 이력을 같은 CSV에 포함한다", () => {
+  const issueEvents = [
+    createWorkActivityEvent(
+      {
+        type: WORK_ACTIVITY_TYPES.ISSUE_CREATED,
+        siteKey: "manchester",
+        courseKey: "",
+        fieldKey: "",
+        reasonCode: "user_reported_issue",
+        valueOrigin: "user",
+        sourceUrl:
+          "https://www.alliancembs.manchester.ac.uk/study/masters/how-to-apply/",
+        valueSnapshot: "여러 마감일 중 첫 날짜만 추출됨."
+      },
+      new Date("2026-07-31T15:00:00.000Z")
+    ),
+    createWorkActivityEvent(
+      {
+        type: WORK_ACTIVITY_TYPES.ISSUE_UPDATED,
+        siteKey: "manchester",
+        courseKey: "",
+        fieldKey: "",
+        reasonCode: "user_reported_issue",
+        valueOrigin: "user",
+        sourceUrl:
+          "https://www.alliancembs.manchester.ac.uk/study/masters/how-to-apply/",
+        valueSnapshot: "여러 마감일 표 전체가 누락됨.",
+        previousValueSnapshot: "여러 마감일 중 첫 날짜만 추출됨."
+      },
+      new Date("2026-07-31T15:01:00.000Z")
+    ),
+    createWorkActivityEvent(
+      {
+        type: WORK_ACTIVITY_TYPES.ISSUE_DELETED,
+        siteKey: "manchester",
+        courseKey: "",
+        fieldKey: "",
+        reasonCode: "user_reported_issue",
+        valueOrigin: "user",
+        sourceUrl:
+          "https://www.alliancembs.manchester.ac.uk/study/masters/how-to-apply/",
+        previousValueSnapshot: "여러 마감일 표 전체가 누락됨."
+      },
+      new Date("2026-07-31T15:02:00.000Z")
+    )
+  ];
+  const csv = serializeWorkActivityCsv(issueEvents);
+
+  assert.match(csv, /"user_issue_created"/);
+  assert.match(csv, /"user_issue_updated"/);
+  assert.match(csv, /"user_issue_deleted"/);
+  assert.match(csv, /"여러 마감일 표 전체가 누락됨\."/);
+});
+
 test("사이트·항목별 실패를 합치고 반복 site_structure만 개선 후보로 정한다", () => {
   const events = [
     createFailure({
