@@ -1,203 +1,89 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-
 import {
   ISSUE_NOTE_STORAGE_KEY,
+  ISSUE_STATUS,
   createDefaultIssueNoteStore,
   createIssueNoteRecord,
-  deleteIssueNoteRecord,
   loadIssueNoteState,
-  saveIssueNoteStoreWithActivity,
+  saveIssueNoteStore,
+  serializeIssueNotesJson,
+  setIssueNoteStatus,
   updateIssueNoteRecord,
   upsertIssueNoteRecord
 } from "../shared/issue-notes.js";
-import {
-  WORK_ACTIVITY_STORAGE_KEY,
-  WORK_ACTIVITY_TYPES,
-  createWorkActivityEvent
-} from "../shared/work-activity-log.js";
 
-const NOW = new Date("2026-07-31T15:00:00.000Z");
-const URL =
-  "https://www.alliancembs.manchester.ac.uk/study/masters/how-to-apply/";
+const NOW = new Date("2026-08-05T03:00:00.000Z");
+const SOURCE = "https://www.manchester.ac.uk/study/masters/courses/list/";
 
-function createMemoryStorage(initial = {}, options = {}) {
+function record() {
+  return createIssueNoteRecord({
+    siteKey: "manchester",
+    courseKey: "masters-courses-list",
+    universityName: "The University of Manchester",
+    courseName: "MSc Finance",
+    academicCycle: "2026/27",
+    sourceUrl: SOURCE,
+    note: "상담 위젯 숫자를 지원비로 가져옴"
+  }, NOW);
+}
+
+function memoryStorage(initial = {}, failSet = false) {
   const values = structuredClone(initial);
   return {
     values,
-    async get(keys) {
-      const requested = Array.isArray(keys) ? keys : [keys];
-      return Object.fromEntries(
-        requested
-          .filter((key) => Object.hasOwn(values, key))
-          .map((key) => [key, structuredClone(values[key])])
-      );
-    },
-    async set(next) {
-      if (options.failSet) {
-        throw new Error("set failed");
-      }
-      Object.assign(values, structuredClone(next));
-    }
+    async get(key) { return Object.hasOwn(values, key) ? { [key]: structuredClone(values[key]) } : {}; },
+    async set(next) { if (failSet) throw new Error("set failed"); Object.assign(values, structuredClone(next)); }
   };
 }
 
-function createRecord(note = "여러 마감일 중 첫 날짜만 추출됨.") {
-  return createIssueNoteRecord(
-    {
-      siteKey: "manchester",
-      courseKey: "",
-      universityName: "The University of Manchester",
-      courseName: "How to apply",
-      academicCycle: "2026/27",
-      sourceUrl: URL,
-      note
-    },
-    NOW
-  );
-}
-
-function createActivity(type, record, previousValueSnapshot = "") {
-  return createWorkActivityEvent(
-    {
-      type,
-      siteKey: record.siteKey,
-      courseKey: record.courseKey,
-      fieldKey: "",
-      reasonCode: "user_reported_issue",
-      valueOrigin: "user",
-      sourceUrl: record.sourceUrl,
-      valueSnapshot:
-        type === WORK_ACTIVITY_TYPES.ISSUE_DELETED ? "" : record.note,
-      previousValueSnapshot:
-        type === WORK_ACTIVITY_TYPES.ISSUE_DELETED
-          ? record.note
-          : previousValueSnapshot,
-      detail: `${record.academicCycle} · ${record.courseName}`
-    },
-    new Date("2026-07-31T15:05:00.000Z")
-  );
-}
-
-test("자유 형식 문제 기록에 현재 페이지와 학년도 문맥을 보존한다", () => {
-  const record = createRecord();
-
-  assert.equal(record.siteKey, "manchester");
-  assert.equal(record.courseKey, "");
-  assert.equal(record.academicCycle, "2026/27");
-  assert.equal(record.sourceUrl, URL);
-  assert.equal(record.note, "여러 마감일 중 첫 날짜만 추출됨.");
+test("새 문제는 활성 작업 없이 페이지 문맥과 미해결 상태로 생성한다", () => {
+  const created = record();
+  assert.equal(created.status, ISSUE_STATUS.OPEN);
+  assert.equal(created.resolvedAt, "");
+  assert.equal(Object.hasOwn(created, "workId"), false);
 });
 
-test("문제 기록을 같은 id로 수정하고 선택한 기록만 삭제한다", () => {
-  const first = createRecord();
-  const second = createIssueNoteRecord(
-    {
-      ...first,
-      note: "지원비가 잘못 추출됨."
-    },
-    new Date("2026-07-31T15:01:00.000Z")
-  );
-  const initial = upsertIssueNoteRecord(
-    upsertIssueNoteRecord(createDefaultIssueNoteStore(), first),
-    second
-  );
-  const updated = updateIssueNoteRecord(
-    first,
-    "여러 마감일 표 전체가 누락됨.",
-    new Date("2026-07-31T15:02:00.000Z")
-  );
-  const changed = upsertIssueNoteRecord(initial, updated);
-  const deleted = deleteIssueNoteRecord(changed, updated.id);
-
-  assert.equal(changed.records.length, 2);
-  assert.equal(
-    changed.records.find((record) => record.id === first.id).note,
-    "여러 마감일 표 전체가 누락됨."
-  );
-  assert.equal(deleted.records.length, 1);
-  assert.equal(deleted.records[0].id, second.id);
+test("문제 수정과 해결·다시 열기를 같은 id로 보존한다", () => {
+  const original = record();
+  const edited = updateIssueNoteRecord(original, "다른 위젯 숫자를 지원비로 가져옴", new Date("2026-08-05T04:00:00Z"));
+  const resolved = setIssueNoteStatus(edited, ISSUE_STATUS.RESOLVED, new Date("2026-08-05T05:00:00Z"));
+  const reopened = setIssueNoteStatus(resolved, ISSUE_STATUS.OPEN, new Date("2026-08-05T06:00:00Z"));
+  assert.equal(edited.id, original.id);
+  assert.equal(resolved.status, ISSUE_STATUS.RESOLVED);
+  assert.ok(resolved.resolvedAt);
+  assert.equal(reopened.resolvedAt, "");
 });
 
-test("생성 기록과 CSV 활동 이벤트를 한 번의 storage set으로 저장한다", async () => {
-  const record = createRecord();
-  const store = upsertIssueNoteRecord(
-    createDefaultIssueNoteStore(),
-    record
-  );
-  const event = createActivity(WORK_ACTIVITY_TYPES.ISSUE_CREATED, record);
-  const storage = createMemoryStorage();
-
-  const saved = await saveIssueNoteStoreWithActivity(
-    store,
-    event,
-    storage
-  );
-
-  assert.deepEqual(storage.values[ISSUE_NOTE_STORAGE_KEY], store);
-  assert.equal(
-    storage.values[WORK_ACTIVITY_STORAGE_KEY][0].type,
-    WORK_ACTIVITY_TYPES.ISSUE_CREATED
-  );
-  assert.equal(saved.events[0].valueSnapshot, record.note);
-});
-
-test("문제 기록 통합 저장 실패 시 기존 기록과 활동 로그를 유지한다", async () => {
-  const original = createRecord("기존 문제");
-  const originalStore = upsertIssueNoteRecord(
-    createDefaultIssueNoteStore(),
-    original
-  );
-  const changed = updateIssueNoteRecord(
-    original,
-    "수정한 문제",
-    new Date("2026-07-31T15:03:00.000Z")
-  );
-  const changedStore = upsertIssueNoteRecord(originalStore, changed);
-  const event = createActivity(
-    WORK_ACTIVITY_TYPES.ISSUE_UPDATED,
-    changed,
-    original.note
-  );
-  const storage = createMemoryStorage(
-    {
-      [ISSUE_NOTE_STORAGE_KEY]: originalStore,
-      [WORK_ACTIVITY_STORAGE_KEY]: []
-    },
-    { failSet: true }
-  );
-
-  await assert.rejects(
-    () => saveIssueNoteStoreWithActivity(changedStore, event, storage),
-    /set failed/
-  );
-  assert.deepEqual(storage.values[ISSUE_NOTE_STORAGE_KEY], originalStore);
-  assert.deepEqual(storage.values[WORK_ACTIVITY_STORAGE_KEY], []);
-});
-
-test("손상된 문제 기록은 격리하고 원본 저장소를 덮어쓰지 않는다", async () => {
-  const damaged = {
-    schemaVersion: 1,
-    records: [{ id: "broken" }]
-  };
-  const storage = createMemoryStorage({
-    [ISSUE_NOTE_STORAGE_KEY]: damaged
-  });
+test("schema 1 문제 기록은 모두 미해결인 schema 2로 변환한다", async () => {
+  const old = { ...record(), schemaVersion: 1, workId: "legacy-work" };
+  delete old.status;
+  delete old.resolvedAt;
+  const storage = memoryStorage({ [ISSUE_NOTE_STORAGE_KEY]: { schemaVersion: 1, records: [old] } });
   const state = await loadIssueNoteState(storage);
+  assert.equal(state.migrated, true);
+  assert.equal(state.store.records[0].status, ISSUE_STATUS.OPEN);
+  assert.equal(storage.values[ISSUE_NOTE_STORAGE_KEY].schemaVersion, 2);
+});
 
-  assert.equal(state.invalidRecordCount, 1);
-  assert.equal(state.recovered, true);
-  assert.deepEqual(state.store.records, []);
+test("문제 기록은 활동 로그 없이 단독 저장하며 실패 시 원본을 유지한다", async () => {
+  const originalStore = upsertIssueNoteRecord(createDefaultIssueNoteStore(), record());
+  const changedStore = upsertIssueNoteRecord(originalStore, updateIssueNoteRecord(record(), "수정"));
+  const storage = memoryStorage({ [ISSUE_NOTE_STORAGE_KEY]: originalStore }, true);
+  await assert.rejects(() => saveIssueNoteStore(changedStore, storage), /set failed/);
+  assert.deepEqual(storage.values[ISSUE_NOTE_STORAGE_KEY], originalStore);
+  assert.equal(Object.hasOwn(storage.values, "activeCourseWorkEvents"), false);
+});
 
-  const record = createRecord();
-  const store = upsertIssueNoteRecord(
-    createDefaultIssueNoteStore(),
-    record
+test("JSON 내보내기는 해결된 기록을 포함하고 상태별 개수를 제공한다", () => {
+  const open = record();
+  const resolved = setIssueNoteStatus(
+    createIssueNoteRecord({ ...open, note: "해결한 문제" }, new Date("2026-08-05T03:01:00Z")),
+    ISSUE_STATUS.RESOLVED,
+    new Date("2026-08-05T05:00:00Z")
   );
-  const event = createActivity(WORK_ACTIVITY_TYPES.ISSUE_CREATED, record);
-  await assert.rejects(
-    () => saveIssueNoteStoreWithActivity(store, event, storage),
-    /손상된 문제 기록/
-  );
-  assert.deepEqual(storage.values[ISSUE_NOTE_STORAGE_KEY], damaged);
+  const store = upsertIssueNoteRecord(upsertIssueNoteRecord(createDefaultIssueNoteStore(), open), resolved);
+  const exported = JSON.parse(serializeIssueNotesJson(store, NOW));
+  assert.deepEqual(exported.summary, { total: 2, open: 1, resolved: 1 });
+  assert.equal(exported.records.length, 2);
 });

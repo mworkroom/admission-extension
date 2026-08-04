@@ -1,626 +1,148 @@
 <!doctype html>
 <html lang="ko">
   <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>입학요강 체크리스트</title>
-    <link rel="stylesheet" href="./sidepanel.css">
+    <title>입학요강 확인</title>
+    <link rel="stylesheet" href="sidepanel.css">
   </head>
   <body>
     <main class="app-shell">
-      <section class="basis-panel" aria-labelledby="basis-title">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Admission Check</p>
+          <h1>입학요강 확인</h1>
+        </div>
+        <button class="icon-button" id="open-tools-button" type="button" aria-label="도구 열기" title="도구">•••</button>
+      </header>
+
+      <section class="basis-strip" aria-labelledby="basis-title">
+        <div>
+          <h2 class="sr-only" id="basis-title">현재 분석 기준</h2>
+          <strong id="basis-cycle"></strong>
+          <span id="basis-mode"></span>
+        </div>
+        <button class="text-button" id="edit-basis-button" type="button">변경</button>
+      </section>
+      <p class="warning-line" id="non-september-warning" hidden>9월 외 입학 기준입니다.</p>
+      <p class="status-line" id="basis-status" role="status" aria-live="polite"></p>
+
+      <section class="identity-card" aria-labelledby="university-name">
+        <div class="identity-card__heading">
+          <div>
+            <p class="eyebrow" id="page-kicker">현재 페이지</p>
+            <h2 id="university-name">페이지 확인 중…</h2>
+          </div>
+          <button class="pencil-button" id="edit-university-memo-button" type="button" aria-label="대학 전체 확인한 사항 편집" title="대학 메모 편집" disabled>✎</button>
+        </div>
+        <p class="course-name" id="course-name"></p>
+        <p class="page-message" id="page-message" role="status"></p>
+        <div id="university-memo"></div>
+      </section>
+
+      <section class="analysis-section" aria-labelledby="result-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Admission Checklist</p>
-            <h1 id="basis-title">현재 분석 기준</h1>
+            <h2 id="result-title">확인 결과</h2>
+            <div class="analysis-summary" id="analysis-summary" aria-live="polite"></div>
           </div>
-          <button class="button button--compact" id="edit-basis-button" type="button">
-            기준 변경
-          </button>
+          <button class="button button--secondary button--compact" id="analyze-button" type="button" hidden>다시 분석</button>
         </div>
-
-        <p class="basis-primary" id="basis-cycle">기준을 불러오는 중…</p>
-        <p class="basis-secondary" id="basis-mode"></p>
-
-        <div class="notice notice--warning" id="non-september-warning" hidden>
-          <span aria-hidden="true">!</span>
-          <div>
-            <strong>현재 입학 월이 9월이 아닙니다.</strong>
-            <button class="text-button" id="reset-september-button" type="button">
-              9월 기준으로 되돌리기
-            </button>
-          </div>
-        </div>
-
-        <p class="inline-status" id="basis-status" role="status" aria-live="polite"></p>
+        <div class="stale-notice" id="stale-notice" hidden>기준이 바뀌었습니다. 현재 페이지를 다시 분석해주세요.</div>
+        <ul class="field-list field-list--priority" id="priority-field-list"></ul>
+        <details class="other-results" id="other-results">
+          <summary>나머지 확인 항목 <span id="other-field-count"></span></summary>
+          <ul class="field-list" id="other-field-list"></ul>
+        </details>
       </section>
-
-      <section class="content-section" aria-labelledby="page-title">
-        <div class="section-heading section-heading--stackable">
-          <div class="section-heading__copy">
-            <p class="section-number">01</p>
-            <h2 id="page-title">현재 페이지</h2>
-          </div>
-          <button class="button button--secondary" id="refresh-page-button" type="button">
-            페이지 다시 확인
-          </button>
-        </div>
-
-        <div class="page-summary" id="page-summary" aria-live="polite" aria-busy="true">
-          <p class="loading-message">활성 탭을 확인하고 있습니다.</p>
-        </div>
-
-        <div class="widget-control">
-          <label class="widget-control__label" for="hide-known-widgets-input">
-            <input id="hide-known-widgets-input" type="checkbox">
-            <span>
-              <strong>상담 위젯 숨기기</strong> 
-            </span>
-          </label>
-          <p class="widget-control__status" id="widget-control-status" role="status" aria-live="polite"></p>
-        </div>
-      </section>
-
-      <section class="content-section result-section" aria-labelledby="result-title">
-        <div class="section-heading section-heading--stackable">
-          <div class="section-heading__copy">
-            <p class="section-number">02</p>
-            <div>
-              <h2 id="result-title">분석 결과</h2>
-              <p class="section-description">현재 공개 대학 페이지의 입학 조건과 비용을 분석합니다.</p>
-            </div>
-          </div>
-          <button class="button button--primary" id="analyze-button" type="button">
-            현재 페이지 분석
-          </button>
-        </div>
-
-        <div class="analysis-summary" id="analysis-summary" aria-live="polite">
-          <p>분석 가능한 페이지에서 결과를 확인할 수 있습니다.</p>
-        </div>
-
-        <div class="active-work" id="active-work-panel">
-          <div class="active-work__heading">
-            <div>
-              <p class="active-work__eyebrow">활성 과정 작업</p>
-              <strong id="active-work-name">저장된 작업 없음</strong>
-            </div>
-            <span class="active-work__conflict" id="active-work-conflict" hidden></span>
-          </div>
-          <p class="active-work__meta" id="active-work-meta">
-            현재 분석을 작업으로 저장하면 다른 공식 페이지의 값을 이어서 합칠 수 있습니다.
-          </p>
-          <button
-            class="button button--secondary active-work__button"
-            id="add-to-active-work-button"
-            type="button"
-            disabled
-          >
-            현재 페이지를 먼저 분석
-          </button>
-          <p
-            class="active-work__status"
-            id="active-work-status"
-            role="status"
-            aria-live="polite"
-          ></p>
-          <div class="work-export" aria-labelledby="work-export-title">
-            <div class="work-export__heading">
-              <strong id="work-export-title">내보내기와 실패 요약</strong>
-              <span id="work-activity-count">기록 0개</span>
-            </div>
-            <div class="work-export__actions">
-              <button
-                class="button button--compact"
-                id="export-active-work-json-button"
-                type="button"
-                disabled
-              >
-                활성 작업 JSON
-              </button>
-              <button
-                class="button button--compact"
-                id="export-work-activity-csv-button"
-                type="button"
-                disabled
-              >
-                실사용 기록 CSV
-              </button>
-            </div>
-            <details class="work-failure-summary" id="work-failure-summary">
-              <summary id="work-failure-summary-label">반복 실패 없음</summary>
-              <p class="work-failure-summary__meta" id="work-failure-summary-meta"></p>
-              <ol class="work-failure-summary__list" id="work-failure-summary-list"></ol>
-            </details>
-            <p
-              class="work-export__status"
-              id="work-export-status"
-              role="status"
-              aria-live="polite"
-            ></p>
-          </div>
-        </div>
-
-        <div class="notice notice--warning stale-notice" id="stale-notice" hidden>
-          <span aria-hidden="true">!</span>
-          <p>기준이 변경되었습니다. 표시된 값은 이전 기준의 결과이므로 다시 분석하세요.</p>
-        </div>
-
-        <ol class="field-list" id="field-list"></ol>
-      </section>
-
-      <section class="content-section issue-section" aria-labelledby="issue-title">
-        <div class="section-heading">
-          <div class="section-heading__copy">
-            <p class="section-number">03</p>
-            <div>
-              <h2 id="issue-title">문제 기록</h2>
-              <p class="section-description">
-                앱이 예상하지 못한 누락이나 잘못된 추출을 자유롭게 남깁니다.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <form class="issue-form" id="issue-form" novalidate>
-          <p class="issue-context" id="issue-context">
-            현재 페이지 정보를 확인하고 있습니다.
-          </p>
-          <label class="field-control" for="issue-note-input">
-            <span>발견한 문제</span>
-            <textarea
-              id="issue-note-input"
-              rows="4"
-              maxlength="2000"
-              placeholder="예: 여러 마감일 중 첫 날짜만 추출됨. 표 전체 확인 필요."
-              required
-            ></textarea>
-            <small>
-              학교·과정·현재 URL·학년도·기록 시각은 자동으로 함께 저장됩니다.
-            </small>
-          </label>
-          <div class="issue-form__actions">
-            <button
-              class="button button--secondary"
-              id="cancel-issue-edit-button"
-              type="button"
-              hidden
-            >
-              수정 취소
-            </button>
-            <button
-              class="button button--primary"
-              id="save-issue-button"
-              type="submit"
-            >
-              문제 기록 저장
-            </button>
-          </div>
-          <p
-            class="issue-status"
-            id="issue-status"
-            role="status"
-            aria-live="polite"
-          ></p>
-        </form>
-
-        <div class="issue-history" aria-labelledby="issue-history-title">
-          <div class="issue-history__heading">
-            <strong id="issue-history-title">최근 문제 기록</strong>
-            <span id="issue-note-count">0개</span>
-          </div>
-          <p class="issue-history__empty" id="issue-history-empty">
-            아직 저장한 문제 기록이 없습니다.
-          </p>
-          <ol class="issue-note-list" id="issue-note-list"></ol>
-        </div>
-      </section>
-
     </main>
 
-    <dialog class="basis-dialog" id="basis-dialog" aria-labelledby="dialog-title">
-      <form id="basis-form" method="dialog" novalidate>
-        <div class="dialog-heading">
-          <div>
-            <p class="eyebrow">모든 항목에 적용</p>
-            <h2 id="dialog-title">기준 변경</h2>
-          </div>
-          <button class="icon-button" id="close-dialog-button" type="button" aria-label="닫기">
-            ×
-          </button>
+    <dialog class="dialog" id="tools-dialog" aria-labelledby="tools-title">
+      <div class="dialog__header">
+        <div><p class="eyebrow">설정과 기록</p><h2 id="tools-title">도구</h2></div>
+        <button class="icon-button" id="close-tools-button" type="button" aria-label="도구 닫기">×</button>
+      </div>
+      <div class="tools-list">
+        <button class="tool-row" id="open-issue-manager-button" type="button">
+          <span><strong>문제 기록</strong><small>앱에서 반복되는 오류를 남깁니다.</small></span>
+          <span id="open-issue-count">0</span>
+        </button>
+        <button class="tool-row" id="export-issues-button" type="button">
+          <span><strong>문제 기록 내보내기</strong><small>해결된 기록을 포함한 JSON</small></span>
+          <span>↓</span>
+        </button>
+        <label class="tool-row tool-row--toggle" for="hide-known-widgets-input">
+          <span><strong>상담 위젯 숨기기</strong><small>알려진 위젯만 현재 탭에서 숨깁니다.</small></span>
+          <input id="hide-known-widgets-input" type="checkbox">
+        </label>
+      </div>
+      <p class="status-line" id="tools-status" role="status" aria-live="polite"></p>
+    </dialog>
+
+    <dialog class="dialog" id="basis-dialog" aria-labelledby="basis-dialog-title">
+      <form id="basis-form" novalidate>
+        <div class="dialog__header">
+          <div><p class="eyebrow">전체 분석에 적용</p><h2 id="basis-dialog-title">분석 기준</h2></div>
+          <button class="icon-button" id="close-basis-button" type="button" aria-label="분석 기준 닫기">×</button>
         </div>
-
-        <p class="dialog-description">
-          저장한 기준은 다른 탭에서도 유지됩니다. 변경 후 현재 페이지를 다시 분석해야 합니다.
-        </p>
-
         <div class="form-grid">
-          <label class="field-control">
-            <span>Academic cycle</span>
-            <input
-              id="academic-cycle-input"
-              name="academicCycle"
-              type="text"
-              inputmode="numeric"
-              autocomplete="off"
-              placeholder="2026/27"
-              pattern="[0-9]{4}/[0-9]{2}"
-              required
-            >
-            <small>예: 2026/27</small>
-          </label>
-
-          <label class="field-control">
-            <span>입학 월</span>
-            <select id="intake-month-input" name="intakeMonth" required></select>
-          </label>
-
-          <label class="field-control">
-            <span>입학 연도</span>
-            <input
-              id="intake-year-input"
-              name="intakeYear"
-              type="number"
-              min="2000"
-              max="2100"
-              step="1"
-              required
-            >
-          </label>
-
-          <label class="field-control">
-            <span>Study mode</span>
-            <select id="study-mode-input" name="studyMode" required>
-              <option value="full-time">Full-time</option>
-              <option value="part-time">Part-time</option>
-            </select>
-          </label>
-
-          <label class="field-control">
-            <span>Fee status</span>
-            <select id="fee-status-input" name="feeStatus" required>
-              <option value="international">International</option>
-              <option value="home">Home</option>
-            </select>
-          </label>
+          <label>학년도<input id="academic-cycle-input" required placeholder="2026/27"></label>
+          <label>입학 월<select id="intake-month-input"></select></label>
+          <label>입학 연도<input id="intake-year-input" type="number" min="2000" max="2100" required></label>
+          <label>과정 형태<select id="study-mode-input"><option value="full-time">Full-time</option><option value="part-time">Part-time</option></select></label>
+          <label>학비 구분<select id="fee-status-input"><option value="international">International</option><option value="home">Home</option></select></label>
         </div>
+        <p class="form-error" id="basis-error" role="alert"></p>
+        <div class="dialog__actions"><button class="button button--secondary" id="cancel-basis-button" type="button">취소</button><button class="button button--primary" id="save-basis-button" type="submit">저장</button></div>
+      </form>
+    </dialog>
 
-        <p class="form-error" id="dialog-error" role="alert"></p>
-
-        <div class="dialog-actions">
-          <button class="button button--secondary" id="cancel-dialog-button" type="button">
-            취소
-          </button>
-          <button class="button button--primary" id="save-basis-button" type="submit">
-            기준 저장
-          </button>
+    <dialog class="dialog" id="memo-dialog" aria-labelledby="memo-dialog-title">
+      <form id="memo-form" novalidate>
+        <div class="dialog__header">
+          <div><p class="eyebrow" id="memo-dialog-eyebrow">확인한 사항</p><h2 id="memo-dialog-title">확인한 사항 추가</h2></div>
+          <button class="icon-button" id="close-memo-button" type="button" aria-label="확인한 사항 닫기">×</button>
+        </div>
+        <p class="dialog-context" id="memo-context"></p>
+        <div class="form-stack">
+          <label>한 줄 요약 <span aria-hidden="true">*</span><input id="memo-summary-input" maxlength="500" required placeholder="다음 업무에서 바로 알아야 할 내용"></label>
+          <label>상세 설명 <span class="optional">선택</span><textarea id="memo-details-input" rows="4" maxlength="4000"></textarea></label>
+          <label>출처 URL <span class="optional">선택</span><input id="memo-source-url-input" type="url" placeholder="https://..."></label>
+          <label>출처 이름 <span class="optional">선택</span><input id="memo-source-label-input" maxlength="500"></label>
+          <fieldset>
+            <legend>확인 상태</legend>
+            <label class="radio-row"><input name="memo-state" id="memo-unverified-input" type="radio" value="unverified" checked> 미확인</label>
+            <label class="radio-row"><input name="memo-state" id="memo-confirmed-input" type="radio" value="confirmed"> 확인됨</label>
+          </fieldset>
+          <div class="confirmation-date" id="confirmation-date-fields" hidden>
+            <label>마지막 확인일<input id="memo-confirmed-date-input" type="date"></label>
+            <button class="button button--secondary button--compact" id="memo-today-button" type="button">오늘</button>
+          </div>
+        </div>
+        <p class="form-error" id="memo-error" role="alert"></p>
+        <div class="dialog__actions dialog__actions--spread">
+          <button class="text-button text-button--danger" id="delete-memo-button" type="button" hidden>삭제</button>
+          <span class="dialog__actions"><button class="button button--secondary" id="cancel-memo-button" type="button">취소</button><button class="button button--primary" id="save-memo-button" type="submit">저장</button></span>
         </div>
       </form>
     </dialog>
 
-    <dialog class="basis-dialog memo-dialog" id="memo-dialog" aria-labelledby="memo-dialog-title">
-      <form id="memo-form" method="dialog" novalidate>
-        <div class="dialog-heading">
-          <div>
-            <p class="eyebrow" id="memo-dialog-eyebrow">확인한 사항</p>
-            <h2 id="memo-dialog-title">확인한 사항 추가</h2>
-          </div>
-          <button
-            class="icon-button"
-            id="close-memo-dialog-button"
-            type="button"
-            aria-label="확인한 사항 창 닫기"
-          >
-            ×
-          </button>
-        </div>
-
-        <p class="dialog-description">
-          과정 페이지의 추출값과 별도로, 같은 대학에서 반복해 확인할 내용을 저장합니다.
-        </p>
-
-        <div class="memo-context" aria-label="확인한 사항 적용 정보">
-          <p>
-            <span>항목</span>
-            <strong id="memo-field-label"></strong>
-          </p>
-          <p>
-            <span>적용 범위</span>
-            <strong id="memo-scope-label"></strong>
-          </p>
-        </div>
-
-        <div class="form-grid">
-          <label class="field-control">
-            <span>확인한 사항</span>
-            <textarea
-              id="memo-value-input"
-              name="memoValue"
-              rows="5"
-              maxlength="2000"
-              placeholder="확인한 내용을 입력하세요."
-              required
-            ></textarea>
-            <small>나중에 그대로 다시 사용할 핵심 내용만 간결하게 입력합니다.</small>
-          </label>
-
-          <label class="field-control">
-            <span>출처 URL</span>
-            <input
-              id="memo-source-url-input"
-              name="memoSourceUrl"
-              type="url"
-              inputmode="url"
-              autocomplete="off"
-              placeholder="https://..."
-              required
-            >
-          </label>
-
-          <label class="field-control">
-            <span>출처 설명 <small>(선택)</small></span>
-            <input
-              id="memo-source-label-input"
-              name="memoSourceLabel"
-              type="text"
-              maxlength="200"
-              autocomplete="off"
-              placeholder="예: University English requirements"
-            >
-          </label>
-        </div>
-
-        <p class="memo-dialog-note">
-          현재 버전에서는 잘못된 단과대 적용을 막기 위해 대학 전체 범위로만 저장합니다.
-        </p>
-        <p class="form-error" id="memo-dialog-error" role="alert"></p>
-
-        <div class="dialog-actions">
-          <button class="button button--secondary" id="cancel-memo-dialog-button" type="button">
-            취소
-          </button>
-          <button class="button button--primary" id="save-memo-button" type="submit">
-            저장
-          </button>
-        </div>
+    <dialog class="dialog dialog--wide" id="issue-dialog" aria-labelledby="issue-title">
+      <div class="dialog__header">
+        <div><p class="eyebrow">앱 개선용</p><h2 id="issue-title">문제 기록</h2></div>
+        <button class="icon-button" id="close-issue-button" type="button" aria-label="문제 기록 닫기">×</button>
+      </div>
+      <form id="issue-form" novalidate>
+        <p class="dialog-context" id="issue-context"></p>
+        <label class="form-stack">발견한 문제<textarea id="issue-note-input" rows="3" maxlength="2000" required placeholder="예: 지원비 대신 상담 위젯의 숫자를 가져옴"></textarea></label>
+        <div class="dialog__actions"><button class="button button--secondary" id="cancel-issue-edit-button" type="button" hidden>수정 취소</button><button class="button button--primary" id="save-issue-button" type="submit">저장</button></div>
       </form>
+      <p class="status-line" id="issue-status" role="status" aria-live="polite"></p>
+      <div class="issue-filter"><strong>기록 <span id="issue-count">0</span></strong><label><input id="show-resolved-input" type="checkbox"> 해결됨 포함</label></div>
+      <p class="empty-state" id="issue-empty">아직 기록이 없습니다.</p>
+      <ol class="issue-list" id="issue-list"></ol>
     </dialog>
 
-    <dialog
-      class="basis-dialog memo-dialog memo-delete-dialog"
-      id="memo-delete-dialog"
-      aria-labelledby="memo-delete-dialog-title"
-    >
-      <form id="memo-delete-form" method="dialog" novalidate>
-        <div class="dialog-heading">
-          <div>
-            <p class="eyebrow">삭제 전 확인</p>
-            <h2 id="memo-delete-dialog-title">확인한 사항 삭제</h2>
-          </div>
-          <button
-            class="icon-button"
-            id="close-memo-delete-dialog-button"
-            type="button"
-            aria-label="삭제 확인 창 닫기"
-          >
-            ×
-          </button>
-        </div>
-
-        <p class="dialog-description">
-          삭제할 대학과 항목을 다시 확인하세요. 삭제 후 자동 복구할 수 없습니다.
-        </p>
-
-        <div class="memo-context" aria-label="삭제할 확인한 사항">
-          <p>
-            <span>항목</span>
-            <strong id="memo-delete-field-label"></strong>
-          </p>
-          <p>
-            <span>적용 범위</span>
-            <strong id="memo-delete-scope-label"></strong>
-          </p>
-          <p>
-            <span>현재 값</span>
-            <strong class="memo-delete-value" id="memo-delete-value"></strong>
-          </p>
-        </div>
-
-        <p class="memo-delete-warning" id="memo-delete-verification-summary" role="alert"></p>
-        <p class="form-error" id="memo-delete-dialog-error" role="alert"></p>
-
-        <div class="dialog-actions">
-          <button
-            class="button button--secondary"
-            id="cancel-memo-delete-dialog-button"
-            type="button"
-          >
-            취소
-          </button>
-          <button class="button button--danger" id="confirm-memo-delete-button" type="submit">
-            삭제
-          </button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog
-      class="basis-dialog active-work-replace-dialog"
-      id="active-work-replace-dialog"
-      aria-labelledby="active-work-replace-dialog-title"
-    >
-      <form id="active-work-replace-form" method="dialog" novalidate>
-        <div class="dialog-heading">
-          <div>
-            <p class="eyebrow">다른 작업 확인</p>
-            <h2 id="active-work-replace-dialog-title">활성 작업 교체</h2>
-          </div>
-          <button
-            class="icon-button"
-            id="close-active-work-replace-dialog-button"
-            type="button"
-            aria-label="활성 작업 교체 창 닫기"
-          >
-            ×
-          </button>
-        </div>
-
-        <p class="dialog-description">
-          현재 분석은 저장된 활성 작업과 과정 또는 입학 기준이 다릅니다.
-        </p>
-
-        <div class="active-work-compare" aria-label="교체할 활성 과정 작업 비교">
-          <div>
-            <span>현재 활성 작업</span>
-            <strong id="current-active-work-name"></strong>
-            <small id="current-active-work-basis"></small>
-          </div>
-          <div>
-            <span>새로 시작할 작업</span>
-            <strong id="next-active-work-name"></strong>
-            <small id="next-active-work-basis"></small>
-          </div>
-        </div>
-
-        <p class="active-work-replace-warning" role="alert">
-          교체하면 현재 활성 작업 대신 새 작업이 저장됩니다. 기존 작업은 자동 복구할 수 없습니다.
-        </p>
-        <p class="form-error" id="active-work-replace-error" role="alert"></p>
-
-        <div class="dialog-actions">
-          <button
-            class="button button--secondary"
-            id="cancel-active-work-replace-button"
-            type="button"
-          >
-            취소
-          </button>
-          <button
-            class="button button--danger"
-            id="confirm-active-work-replace-button"
-            type="submit"
-          >
-            교체하고 시작
-          </button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog
-      class="basis-dialog work-value-dialog"
-      id="work-value-dialog"
-      aria-labelledby="work-value-dialog-title"
-    >
-      <form id="work-value-form" method="dialog" novalidate>
-        <div class="dialog-heading">
-          <div>
-            <p class="eyebrow">활성 과정 작업</p>
-            <h2 id="work-value-dialog-title">활성 작업 값 직접 입력</h2>
-          </div>
-          <button
-            class="icon-button"
-            id="close-work-value-dialog-button"
-            type="button"
-            aria-label="활성 작업 값 입력 창 닫기"
-          >
-            ×
-          </button>
-        </div>
-        <p class="dialog-description">
-          페이지 분석값은 보존하고, 직접 확인한 값을 새 기록으로 선택합니다.
-        </p>
-        <div class="form-grid">
-          <label class="field-control">
-            <span>항목</span>
-            <strong id="work-value-field-label"></strong>
-          </label>
-          <label class="field-control">
-            <span>직접 확인한 값</span>
-            <textarea
-              id="work-value-input"
-              rows="5"
-              required
-              placeholder="입학요강에 사용할 값을 입력하세요."
-            ></textarea>
-          </label>
-          <label class="field-control">
-            <span>출처 URL <small>(선택)</small></span>
-            <input
-              id="work-value-source-url-input"
-              type="url"
-              inputmode="url"
-              placeholder="https://..."
-            >
-          </label>
-          <label class="field-control">
-            <span>출처 이름 <small>(선택)</small></span>
-            <input
-              id="work-value-source-label-input"
-              type="text"
-              placeholder="예: 지원서 안내"
-            >
-          </label>
-        </div>
-        <p class="form-error" id="work-value-dialog-error" role="alert"></p>
-        <div class="dialog-actions">
-          <button
-            class="button button--secondary"
-            id="cancel-work-value-dialog-button"
-            type="button"
-          >
-            취소
-          </button>
-          <button class="button button--primary" id="save-work-value-button" type="submit">
-            작업 값 저장
-          </button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog
-      class="basis-dialog issue-delete-dialog"
-      id="issue-delete-dialog"
-      aria-labelledby="issue-delete-dialog-title"
-    >
-      <form id="issue-delete-form" method="dialog" novalidate>
-        <div class="dialog-heading">
-          <div>
-            <p class="eyebrow">삭제 전 확인</p>
-            <h2 id="issue-delete-dialog-title">문제 기록 삭제</h2>
-          </div>
-          <button
-            class="icon-button"
-            id="close-issue-delete-dialog-button"
-            type="button"
-            aria-label="문제 기록 삭제 창 닫기"
-          >
-            ×
-          </button>
-        </div>
-        <p class="dialog-description">
-          목록에서는 제거되지만 삭제 이력은 실사용 기록 CSV에 남습니다.
-        </p>
-        <p class="issue-delete-value" id="issue-delete-value"></p>
-        <p class="form-error" id="issue-delete-error" role="alert"></p>
-        <div class="dialog-actions">
-          <button
-            class="button button--secondary"
-            id="cancel-issue-delete-button"
-            type="button"
-          >
-            취소
-          </button>
-          <button
-            class="button button--danger"
-            id="confirm-issue-delete-button"
-            type="submit"
-          >
-            삭제
-          </button>
-        </div>
-      </form>
-    </dialog>
-
-    <script type="module" src="./sidepanel.js"></script>
+    <script type="module" src="sidepanel.js"></script>
   </body>
 </html>

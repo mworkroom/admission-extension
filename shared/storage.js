@@ -13,7 +13,7 @@ export const STORAGE_KEYS = Object.freeze({
   commonMemos: "commonMemoStore"
 });
 
-export const UI_VERSION = 3;
+export const UI_VERSION = 4;
 export const MAX_ANALYSIS_EVENTS = 100;
 
 function isValidAnalysis(value) {
