@@ -49,6 +49,7 @@ import { readGenericPage } from "../content/read-generic-page.js";
 import { readManchesterPage } from "../content/read-manchester-page.js";
 import { readQmulPage } from "../content/read-qmul-page.js";
 import { readSoasPage } from "../content/read-soas-page.js";
+import { focusSourceInPage } from "../content/focus-source.js";
 
 const PAGE_READERS = Object.freeze({
   generic: readGenericPage,
@@ -58,12 +59,7 @@ const PAGE_READERS = Object.freeze({
   manchester: readManchesterPage
 });
 
-const CORE_FIELD_KEYS = new Set([
-  "entryRequirements",
-  "tuitionFee",
-  "applicationFee",
-  "englishRequirements"
-]);
+const FIELD_GROUP_SEPARATOR_KEY = "reference";
 const COPY_FIELD_KEYS = new Set([
   "entryRequirements",
   "tuitionFee",
@@ -106,10 +102,9 @@ const elements = {
   analysisSummary: document.querySelector("#analysis-summary"),
   analyzeButton: document.querySelector("#analyze-button"),
   staleNotice: document.querySelector("#stale-notice"),
-  priorityFieldList: document.querySelector("#priority-field-list"),
-  otherResults: document.querySelector("#other-results"),
-  otherFieldList: document.querySelector("#other-field-list"),
-  otherFieldCount: document.querySelector("#other-field-count"),
+  fieldList: document.querySelector("#field-list"),
+  fieldGroupDivider: document.querySelector("#field-group-divider"),
+  supportingFieldList: document.querySelector("#supporting-field-list"),
   toolsDialog: document.querySelector("#tools-dialog"),
   openToolsButton: document.querySelector("#open-tools-button"),
   closeToolsButton: document.querySelector("#close-tools-button"),
@@ -347,31 +342,102 @@ function createStatusBadge(status) {
   return badge;
 }
 
-function createSourceDetails(source) {
-  const details = document.createElement("details");
-  details.className = "source-details";
-  const summary = document.createElement("summary");
-  summary.textContent = "근거";
-  details.append(summary);
-  if (source?.sectionLabel) {
-    const section = document.createElement("p");
-    section.textContent = source.sectionLabel;
-    details.append(section);
+function comparablePageUrl(value) {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.pathname = url.pathname.replace(/\/$/, "") || "/";
+    return url.href;
+  } catch {
+    return "";
   }
-  if (source?.excerpt) {
-    const quote = document.createElement("blockquote");
-    quote.textContent = source.excerpt;
-    details.append(quote);
+}
+
+function canFocusSourceOnCurrentPage(source) {
+  return Boolean(
+    Number.isInteger(currentTab?.id) &&
+      source?.excerpt &&
+      isSafeHttpUrl(source?.url) &&
+      comparablePageUrl(source.url) === comparablePageUrl(currentTab.url)
+  );
+}
+
+async function focusSource(source, button, status) {
+  if (!canFocusSourceOnCurrentPage(source)) return;
+  button.disabled = true;
+  status.textContent = "이동 중…";
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: currentTab.id },
+      func: focusSourceInPage,
+      args: [{ excerpt: source.excerpt, sectionLabel: source.sectionLabel }]
+    });
+    const result = results?.[0]?.result;
+    if (!result?.found) {
+      throw new Error(result?.reason || "source_element_not_found");
+    }
+    button.classList.add("source-view-button--success");
+    status.textContent = "왼쪽 페이지에서 강조함";
+  } catch {
+    button.classList.add("source-view-button--failed");
+    status.textContent = "원문 위치를 찾지 못했습니다";
+  } finally {
+    button.disabled = false;
+    window.setTimeout(() => {
+      button.classList.remove(
+        "source-view-button--success",
+        "source-view-button--failed"
+      );
+      status.textContent = "";
+    }, 2400);
   }
-  if (isSafeHttpUrl(source?.url) && source.url) {
+}
+
+function createSourceActions(field) {
+  const actions = document.createElement("div");
+  actions.className = "source-actions";
+  const source = field.source;
+  const sourceUrl = source?.url || "";
+
+  if (canFocusSourceOnCurrentPage(source)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "source-view-button";
+    button.textContent = "원문 보기";
+    button.setAttribute(
+      "aria-label",
+      `${source.sectionLabel || "해당 항목"} 원문 위치 보기`
+    );
+    const status = document.createElement("span");
+    status.className = "source-view-status";
+    status.setAttribute("aria-live", "polite");
+    button.addEventListener("click", () => void focusSource(source, button, status));
+    actions.append(button, status);
+  } else if (sourceUrl && isSafeHttpUrl(sourceUrl)) {
     const link = document.createElement("a");
-    link.href = source.url;
+    link.className = "source-view-link";
+    link.href = sourceUrl;
     link.target = "_blank";
     link.rel = "noreferrer";
-    link.textContent = "원문 열기";
-    details.append(link);
+    link.textContent = "원문 보기";
+    actions.append(link);
   }
-  return details;
+
+  if (
+    field.detailUrl &&
+    isSafeHttpUrl(field.detailUrl) &&
+    comparablePageUrl(field.detailUrl) !== comparablePageUrl(sourceUrl)
+  ) {
+    const detailLink = document.createElement("a");
+    detailLink.className = "source-detail-link";
+    detailLink.href = field.detailUrl;
+    detailLink.target = "_blank";
+    detailLink.rel = "noreferrer";
+    detailLink.textContent = "등급 세부 기준";
+    actions.append(detailLink);
+  }
+
+  return actions;
 }
 
 async function copyField(field, button) {
@@ -406,7 +472,9 @@ function createPencilButton(fieldKey, record) {
 
 function createFieldCard(field) {
   const memoRecord = getMemoRecords(field.key)[0] ?? null;
-  const attention = field.status !== EXTRACTION_STATUS.FOUND;
+  const attention =
+    field.status !== EXTRACTION_STATUS.FOUND &&
+    field.status !== EXTRACTION_STATUS.NOT_REQUIRED;
   const card = document.createElement("li");
   card.className = `field-card ${attention ? "field-card--attention" : ""} ${field.status === EXTRACTION_STATUS.SOURCE_ERROR ? "field-card--error" : ""}`;
   card.dataset.fieldKey = field.key;
@@ -441,7 +509,8 @@ function createFieldCard(field) {
 
   const footer = document.createElement("div");
   footer.className = "field-card__footer";
-  if (field.source) footer.append(createSourceDetails(field.source));
+  const sourceActions = createSourceActions(field);
+  if (sourceActions.childElementCount) footer.append(sourceActions);
   if (COPY_FIELD_KEYS.has(field.key) && field.status === EXTRACTION_STATUS.FOUND && field.copyText) {
     const copyButton = document.createElement("button");
     copyButton.type = "button";
@@ -463,19 +532,15 @@ function renderFields({ analyzing = false } = {}) {
     : analysisMatchesCurrentPage()
       ? currentAnalysis.fields
       : FIELDS.map((field) => makeDefaultField(field)))
-    .filter((field) => !IDENTITY_FIELD_KEYS.has(field.key));
+    .filter((field) => !IDENTITY_FIELD_KEYS.has(field.key))
+    .sort((left, right) => left.order - right.order);
+  const separatorIndex = fields.findIndex((field) => field.key === FIELD_GROUP_SEPARATOR_KEY);
+  const primary = separatorIndex === -1 ? fields : fields.slice(0, separatorIndex);
+  const supporting = separatorIndex === -1 ? [] : fields.slice(separatorIndex);
 
-  const priority = [];
-  const other = [];
-  for (const field of fields) {
-    const hasMemo = getMemoRecords(field.key).length > 0;
-    const hasProblem = analysisMatchesCurrentPage() && field.status !== EXTRACTION_STATUS.FOUND;
-    (CORE_FIELD_KEYS.has(field.key) || hasMemo || hasProblem ? priority : other).push(field);
-  }
-  elements.priorityFieldList.replaceChildren(...priority.map(createFieldCard));
-  elements.otherFieldList.replaceChildren(...other.map(createFieldCard));
-  elements.otherFieldCount.textContent = `(${other.length})`;
-  elements.otherResults.hidden = other.length === 0;
+  elements.fieldList.replaceChildren(...primary.map(createFieldCard));
+  elements.supportingFieldList.replaceChildren(...supporting.map(createFieldCard));
+  elements.fieldGroupDivider.hidden = supporting.length === 0;
 }
 
 function renderAnalysis(message = analysisError) {
@@ -535,7 +600,24 @@ async function analyzeCurrentPage() {
     if (!site || !reader) throw new Error("페이지 분석기를 찾지 못했습니다.");
     const execution = { target: { tabId: currentTab.id }, func: reader };
     if (site.readerKey === "generic") {
-      execution.args = [{ siteKey: site.key, universityName: site.universityName, basis: currentBasis }];
+      execution.args = [{
+        siteKey: site.key,
+        universityName: site.universityName,
+        basis: currentBasis,
+        autoSelectCountry: Boolean(site.autoSelectCountry),
+        koreanAcademicResultSelector:
+          site.koreanAcademicResultSelector || "",
+        expandEnglishAccordion: Boolean(site.expandEnglishAccordion),
+        captureVisaRequiredDeadline: Boolean(site.captureVisaRequiredDeadline),
+        koreanAcademicRequirementsUrl:
+          site.koreanAcademicRequirementsUrl || "",
+        koreanAcademicDefaultDegreeClass:
+          site.koreanAcademicDefaultDegreeClass || "",
+        additionalContentSelector: site.additionalContentSelector || "",
+        applicationFeeUrl: site.applicationFeeUrl || "",
+        applicationDeadlineUrl: site.applicationDeadlineUrl || "",
+        cvGuidelineUrl: site.cvGuidelineUrl || ""
+      }];
     }
     const injectionResults = await chrome.scripting.executeScript(execution);
     const payload = injectionResults?.[0]?.result;

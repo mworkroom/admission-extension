@@ -29,33 +29,52 @@
         </div>
       </section>
       <section class="analysis-section">
-        <div class="section-heading"><div><h2>확인 결과</h2><div class="analysis-summary">7/11 확인 · 다시 볼 항목 4</div></div></div>
-        <ul class="field-list field-list--priority">
+        <div class="section-heading"><div><h2>확인 결과</h2><div class="analysis-summary">7/11 확인</div></div></div>
+        <ul class="field-list" id="field-list">
           <li class="field-card" data-field-key="entryRequirements">
             <div class="field-card__header"><h3 class="field-card__title">Entry Requirements</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" aria-label="Entry Requirements 확인한 사항 편집">✎</button></div>
             <div class="field-card__body"><p class="field-card__value">A minimum high 2:1 undergraduate degree in a relevant subject.</p></div>
-            <div class="field-card__footer"><details class="source-details"><summary>근거</summary><blockquote>A minimum high 2:1 undergraduate degree...</blockquote></details><button class="copy-button">복사</button></div>
+            <div class="field-card__footer"><div class="source-actions"><button type="button" class="source-view-button" aria-label="Entry requirements 원문 위치 보기">원문 보기</button><span class="source-view-status" aria-live="polite"></span></div><button class="copy-button">복사</button></div>
+          </li>
+          <li class="field-card" data-field-key="koreanAcademicRequirements">
+            <div class="field-card__header"><h3 class="field-card__title">Korean Equivalent</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" aria-label="Korean Equivalent 확인한 사항 편집">✎</button></div>
+            <div class="field-card__body"><p class="field-card__value">한국 학력 기준 확인 필요</p></div>
+          </li>
+          <li class="field-card" data-field-key="englishRequirements">
+            <div class="field-card__header"><h3 class="field-card__title">IELTS</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" id="open-memo-button" aria-label="IELTS 확인한 사항 편집">✎</button></div>
+            <div class="field-card__body"><p class="field-card__value">Level 2</p></div>
+            <div class="field-card__footer"><div class="source-actions"><button type="button" class="source-view-button">원문 보기</button><a href="#" class="source-detail-link">등급 세부 기준</a></div></div>
+            <div class="memo-line memo-line--confirmed"><div class="memo-line__header"><strong>Business 과정은 Band B 확인</strong><span class="memo-state">확인됨</span></div><details><summary>상세</summary><p class="memo-line__meta">2026/27 · 2026-08-05</p></details></div>
           </li>
           <li class="field-card" data-field-key="tuitionFee">
             <div class="field-card__header"><h3 class="field-card__title">Tuition Fee</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" aria-label="Tuition Fee 확인한 사항 편집">✎</button></div>
             <div class="field-card__body"><p class="field-card__value">£38,300</p></div>
-            <div class="field-card__footer"><details class="source-details"><summary>근거</summary></details><button class="copy-button">복사</button></div>
+            <div class="field-card__footer"><div class="source-actions"><a href="#" class="source-view-link">원문 보기</a></div><button class="copy-button">복사</button></div>
           </li>
           <li class="field-card field-card--attention" data-field-key="applicationFee">
             <div class="field-card__header"><h3 class="field-card__title">Application Fee</h3><span class="status-badge" aria-label="찾지 못함">–</span><button class="pencil-button" aria-label="Application Fee 확인한 사항 편집">✎</button></div>
             <div class="field-card__body"><p class="field-card__detail">현재 페이지에서 찾지 못했습니다.</p></div>
           </li>
-          <li class="field-card" data-field-key="englishRequirements">
-            <div class="field-card__header"><h3 class="field-card__title">IELTS</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" id="open-memo-button" aria-label="IELTS 확인한 사항 편집">✎</button></div>
-            <div class="field-card__body"><p class="field-card__value">IELTS 7.0 overall, 6.5 in each skill</p></div>
-            <div class="memo-line memo-line--confirmed"><div class="memo-line__header"><strong>Business 과정은 Band B 확인</strong><span class="memo-state">확인됨</span></div><details><summary>상세</summary><p class="memo-line__meta">2026/27 · 2026-08-05</p></details></div>
+          <li class="field-card" data-field-key="universityApplicationDeadline">
+            <div class="field-card__header"><h3 class="field-card__title">Application Deadline</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" aria-label="Application Deadline 확인한 사항 편집">✎</button></div>
+            <div class="field-card__body"><p class="field-card__value">25 July 2026</p></div>
+          </li>
+        </ul>
+        <hr class="field-group-divider" id="field-group-divider" aria-hidden="true">
+        <ul class="field-list" id="supporting-field-list">
+          <li class="field-card" data-field-key="reference">
+            <div class="field-card__header"><h3 class="field-card__title">Reference</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" aria-label="Reference 확인한 사항 편집">✎</button></div>
+            <div class="field-card__body"><p class="field-card__value">Two references, including at least one academic reference.</p></div>
           </li>
           <li class="field-card field-card--attention" data-field-key="sopGuideline">
             <div class="field-card__header"><h3 class="field-card__title">SOP Guideline</h3><span class="status-badge status-badge--action_required" aria-label="선택 필요">!</span><button class="pencil-button" aria-label="SOP Guideline 확인한 사항 편집">✎</button></div>
             <div class="field-card__body"><p class="field-card__action">지원서 안에서 질문과 글자 수를 확인하세요.</p></div>
           </li>
+          <li class="field-card" data-field-key="cv">
+            <div class="field-card__header"><h3 class="field-card__title">CV</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" aria-label="CV 확인한 사항 편집">✎</button></div>
+            <div class="field-card__body"><p class="field-card__value">CV or Resume required.</p></div>
+          </li>
         </ul>
-        <details class="other-results"><summary>나머지 확인 항목 <span>(4)</span></summary><ul class="field-list"><li class="field-card"><div class="field-card__header"><h3>Korean Equivalent</h3><span class="status-badge status-badge--found">✓</span></div></li></ul></details>
       </section>
     </main>
 

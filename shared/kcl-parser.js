@@ -36,6 +36,7 @@ function result(field, status, options = {}) {
     detail,
     nextAction: normalizeText(options.nextAction),
     source: options.source ?? null,
+    detailUrl: normalizeText(options.detailUrl),
     copyText,
     copyState: COPY_STATE.IDLE
   };
@@ -286,13 +287,20 @@ function parseEnglishRequirements(field, requirements) {
     .map(normalizeText)
     .filter(Boolean);
   const bandMatch = text.match(/english language band\s*:?\s*([a-z0-9]+)/i);
+  const englishLink = (requirements?.englishLanguageLinks ?? []).find(
+    (link) =>
+      /english|language|requirement/i.test(
+        `${normalizeText(link?.text)} ${normalizeText(link?.href)}`
+      )
+  );
 
   if (bandMatch) {
     const level = bandMatch[1].toUpperCase();
     const value = `English language band: ${level}`;
     return result(field, EXTRACTION_STATUS.FOUND, {
       value,
-      source: sourceFor(requirements, "English language requirements", value)
+      detailUrl: englishLink?.href,
+      source: sourceFor(requirements, "English language requirements", text)
     });
   }
 
@@ -312,13 +320,6 @@ function parseEnglishRequirements(field, requirements) {
       )
     });
   }
-
-  const englishLink = (requirements?.englishLanguageLinks ?? []).find(
-    (link) =>
-      /english|language|requirement/i.test(
-        `${normalizeText(link?.text)} ${normalizeText(link?.href)}`
-      )
-  );
 
   if (englishLink) {
     const linkText = normalizeText(englishLink.text);

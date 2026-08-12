@@ -35,6 +35,7 @@ export function makeResult(field, status, options = {}) {
     detail,
     nextAction: normalizeText(options.nextAction),
     source: options.source ?? null,
+    detailUrl: normalizeText(options.detailUrl),
     copyText,
     copyState: COPY_STATE.IDLE
   };

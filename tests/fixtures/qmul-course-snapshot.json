@@ -24,8 +24,11 @@
       "value": "UK 2:2 degree: GPA 3.0 out of 4.5; or GPA 2.8 out of 4.3; or GPA 2.5 out of 4.0"
     }
   ],
-  "englishRequirement": "Band 4: IELTS (Academic) minimum score 6.5 overall with 6.0 in each of Writing, Listening, Reading and Speaking",
+  "englishRequirement": "Band 4",
   "englishRequirementUrl": "https://www.qmul.ac.uk/international-students/englishlanguagerequirements/accepted-english-language-tests-and-qualifications/",
+  "englishRequirementSourceUrl": "https://www.qmul.ac.uk/postgraduate/taught/coursefinder/courses/corporate-finance-msc/",
+  "englishRequirementSourceText": "Band 4: IELTS (Academic) minimum score 6.5 overall with 6.0 in each of Writing, Listening, Reading and Speaking",
+  "englishRequirementDetailUrl": "https://www.qmul.ac.uk/international-students/englishlanguagerequirements/accepted-english-language-tests-and-qualifications/",
   "tuitionFeeCandidates": [
     {
       "academicCycle": "2026/27",

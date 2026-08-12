@@ -170,6 +170,8 @@ export async function readManchesterPage() {
     koreanAcademicRequirementsUrl: urls.international,
     englishRequirement,
     englishRequirementUrl: urls.generalEntry,
+    englishRequirementSourceUrl: urls.generalEntry,
+    englishRequirementSourceText: englishRequirement,
     tuitionFeeCandidates: internationalFeeContext
       ? [
           {

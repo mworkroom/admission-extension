@@ -2,6 +2,7 @@ export const EXTRACTION_STATUS = Object.freeze({
   NOT_ANALYZED: "not_analyzed",
   ANALYZING: "analyzing",
   FOUND: "found",
+  NOT_REQUIRED: "not_required",
   ACTION_REQUIRED: "action_required",
   NOT_FOUND: "not_found",
   MULTIPLE_CANDIDATES: "multiple_candidates",
@@ -26,6 +27,10 @@ export const STATUS_META = Object.freeze({
   [EXTRACTION_STATUS.FOUND]: Object.freeze({
     label: "확인됨",
     symbol: "✓"
+  }),
+  [EXTRACTION_STATUS.NOT_REQUIRED]: Object.freeze({
+    label: "요구하지 않음",
+    symbol: "—"
   }),
   [EXTRACTION_STATUS.ACTION_REQUIRED]: Object.freeze({
     label: "선택 필요",

@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "check": "node --check service-worker.js && node --check content/read-generic-page.js && node --check content/read-kcl-page.js && node --check content/read-soas-page.js && node --check content/read-qmul-page.js && node --check content/read-manchester-page.js && node --check shared/course-parser.js && node --check shared/common-memos.js && node --check shared/common-memo-storage.js && node --check shared/issue-notes.js && node --check shared/widget-preferences.js && node --check sidepanel/sidepanel.js && node --test"
+    "check": "node --check service-worker.js && node --check content/focus-source.js && node --check content/read-generic-page.js && node --check content/read-kcl-page.js && node --check content/read-soas-page.js && node --check content/read-qmul-page.js && node --check content/read-manchester-page.js && node --check shared/course-parser.js && node --check shared/common-memos.js && node --check shared/common-memo-storage.js && node --check shared/issue-notes.js && node --check shared/widget-preferences.js && node --check sidepanel/sidepanel.js && node --test"
   }
 }

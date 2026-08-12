@@ -25,11 +25,52 @@ test("알려진 과정 URL은 정밀 adapter로, 그 밖의 HTTPS 페이지는 g
     )?.key,
     "qmul"
   );
+  const ucl = getSupportedSite(
+    "https://www.ucl.ac.uk/prospective-students/graduate/taught-degrees/computational-finance-msc"
+  );
+  assert.equal(ucl?.key, "ucl");
+  assert.equal(ucl?.readerKey, "generic");
+  assert.equal(ucl?.autoSelectCountry, true);
+  assert.equal(ucl?.expandEnglishAccordion, true);
+  assert.equal(ucl?.captureVisaRequiredDeadline, true);
+  const warwick = getSupportedSite(
+    "https://warwick.ac.uk/study/postgraduate/courses/msc-marketing-strategy/"
+  );
+  assert.equal(warwick?.key, "warwick");
+  assert.equal(warwick?.readerKey, "generic");
+  assert.equal(warwick?.autoSelectCountry, true);
+  assert.equal(
+    warwick?.koreanAcademicResultSelector,
+    "#international-content"
+  );
+  const sheffield = getSupportedSite(
+    "https://sheffield.ac.uk/postgraduate/taught/courses/2026/real-estate-msc#entry-req"
+  );
+  assert.equal(sheffield?.key, "sheffield");
+  assert.equal(sheffield?.readerKey, "generic");
+  assert.equal(sheffield?.universityName, "University of Sheffield");
+  assert.match(sheffield?.koreanAcademicRequirementsUrl, /south-korea$/);
+  assert.match(sheffield?.applicationDeadlineUrl, /September2026entry$/);
   assert.equal(
     getSupportedSite(
       "https://www.alliancembs.manchester.ac.uk/study/masters/msc-marketing/entry-requirements/#course-profile"
     )?.readerKey,
     "manchester"
+  );
+  const manchesterMain = getSupportedSite(
+    "https://www.manchester.ac.uk/study/masters/courses/list/04342/msc-mechanical-engineering-design/"
+  );
+  assert.equal(manchesterMain?.key, "manchester");
+  assert.equal(manchesterMain?.readerKey, "generic");
+  assert.equal(manchesterMain?.generic, false);
+  assert.equal(
+    manchesterMain?.koreanAcademicDefaultDegreeClass,
+    "upper_second"
+  );
+  assert.equal(manchesterMain?.additionalContentSelector, "div.text");
+  assert.match(
+    manchesterMain?.koreanAcademicRequirementsUrl,
+    /south-korea\/entry-requirements/
   );
 
   const knownHostGeneric = getSupportedSite(

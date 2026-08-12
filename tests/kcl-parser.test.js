@@ -78,6 +78,11 @@ test("South Korea와 기본 기준에서 11개 항목을 추출한다", async ()
   assert.match(byKey.koreanAcademicRequirements.value, /score of 85%/);
   assert.equal(byKey.englishRequirements.value, "English language band: B");
   assert.equal(byKey.englishRequirements.detail, "");
+  assert.match(byKey.englishRequirements.source.excerpt, /communicate in English/);
+  assert.equal(
+    byKey.englishRequirements.detailUrl,
+    "https://www.kcl.ac.uk/study/postgraduate-taught/how-to-apply/entry-requirements/english-language-requirements"
+  );
   assert.equal(byKey.tuitionFee.value, "£38,300");
   assert.equal(byKey.tuitionFee.detail, "");
   assert.equal(byKey.applicationFee.value, "£85");

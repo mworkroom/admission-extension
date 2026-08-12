@@ -94,6 +94,34 @@ function parseKoreanRequirements(field, snapshot) {
   const fullText = normalizeText(snapshot.koreanAcademicRequirements);
   const candidates = snapshot.koreanAcademicRequirementCandidates ?? [];
   if (!fullText) {
+    if (snapshot.koreanAcademicRequirementSelection) {
+      return makeResult(field, EXTRACTION_STATUS.ACTION_REQUIRED, {
+        reasonCode: "country_selection_required",
+        detail: `${snapshot.koreanAcademicRequirementSelection.selectLabel}에서 South Korea를 선택해야 합니다.`,
+        nextAction: "페이지에서 South Korea를 선택한 뒤 다시 분석하세요.",
+        source: sourceFor(
+          snapshot,
+          "International qualifications",
+          snapshot.koreanAcademicRequirementSelection.optionLabel,
+          snapshot.koreanAcademicRequirementsUrl
+        ),
+        copyText: ""
+      });
+    }
+    if (snapshot.koreanAcademicRequirementsUrl) {
+      return makeResult(field, EXTRACTION_STATUS.ACTION_REQUIRED, {
+        reasonCode: "linked_korean_requirements",
+        detail: "한국 학력 기준이 별도 공식 페이지에 연결되어 있습니다.",
+        nextAction: "원문 보기로 국제 학력 요건 페이지를 열어 South Korea를 확인하세요.",
+        source: sourceFor(
+          snapshot,
+          "South Korea qualifications",
+          "별도 국제 학력 요건 페이지",
+          snapshot.koreanAcademicRequirementsUrl
+        ),
+        copyText: ""
+      });
+    }
     return missing(
       field,
       snapshot,
@@ -152,14 +180,22 @@ function parseKoreanRequirements(field, snapshot) {
 
 function parseEnglish(field, snapshot) {
   const value = normalizeText(snapshot.englishRequirement);
+  const sourceUrl =
+    normalizeText(snapshot.englishRequirementSourceUrl) ||
+    normalizeText(snapshot.englishRequirementUrl) ||
+    normalizeText(snapshot.url);
+  const sourceText =
+    normalizeText(snapshot.englishRequirementSourceText) || value;
+  const detailUrl = normalizeText(snapshot.englishRequirementDetailUrl);
   if (value) {
     return makeResult(field, EXTRACTION_STATUS.FOUND, {
       value,
+      detailUrl,
       source: sourceFor(
         snapshot,
         "English language requirements",
-        value,
-        snapshot.englishRequirementUrl
+        sourceText,
+        sourceUrl
       )
     });
   }
@@ -197,8 +233,21 @@ function matchesBasis(candidate, basis) {
 }
 
 function parseTuition(field, snapshot, basis) {
-  const candidates = (snapshot.tuitionFeeCandidates ?? []).filter((candidate) =>
-    matchesBasis(candidate, basis)
+  const matchingCandidates = (snapshot.tuitionFeeCandidates ?? []).filter(
+    (candidate) => matchesBasis(candidate, basis)
+  );
+  const specificity = (candidate) =>
+    (candidate.academicCycle === basis.academicCycle ? 8 : 0) +
+    (candidate.intakeMonth === basis.intakeMonth ? 4 : 0) +
+    (candidate.intakeYear === basis.intakeYear ? 4 : 0) +
+    (candidate.studyMode === basis.studyMode ? 2 : 0) +
+    (candidate.feeStatus === basis.feeStatus ? 1 : 0);
+  const highestSpecificity = Math.max(
+    0,
+    ...matchingCandidates.map(specificity)
+  );
+  const candidates = matchingCandidates.filter(
+    (candidate) => specificity(candidate) === highestSpecificity
   );
 
   if (candidates.length > 1) {
@@ -217,6 +266,23 @@ function parseTuition(field, snapshot, basis) {
   }
 
   if (candidates.length === 0) {
+    const linkedFee = snapshot.tuitionFeeLinks?.[0];
+    if (linkedFee) {
+      return makeResult(field, EXTRACTION_STATUS.ACTION_REQUIRED, {
+        reasonCode: "linked_tuition_page",
+        detail: "학비가 같은 학교의 별도 공식 페이지에 연결되어 있습니다.",
+        nextAction: "원문 보기로 학비 페이지를 열어 현재 기준의 금액을 확인하세요.",
+        source: sourceFor(
+          snapshot,
+          "Tuition fees",
+          snapshot.tuitionFeeLinks
+            .map((link) => `${link.label} ${link.url}`)
+            .join(" "),
+          linkedFee.url
+        ),
+        copyText: ""
+      });
+    }
     return missing(
       field,
       snapshot,
@@ -282,6 +348,16 @@ function parseTuition(field, snapshot, basis) {
 function parseApplicationFee(field, snapshot) {
   const candidate = snapshot.applicationFeeCandidates?.[0];
   if (!candidate) {
+    const link = snapshot.applicationFeeLinks?.[0];
+    if (link) {
+      return makeResult(field, EXTRACTION_STATUS.ACTION_REQUIRED, {
+        reasonCode: "linked_application_fee",
+        detail: "지원비 정보가 별도 지원 안내 페이지에 있을 수 있습니다.",
+        nextAction: "원문 보기로 지원 안내 페이지의 application fee를 확인하세요.",
+        source: sourceFor(snapshot, "Application fee", link.label, link.url),
+        copyText: ""
+      });
+    }
     return missing(
       field,
       snapshot,
@@ -289,6 +365,20 @@ function parseApplicationFee(field, snapshot) {
       "과정 페이지에서 application fee를 찾지 못했습니다.",
       "학교 지원 안내에서 별도 비용이 있는지 확인하세요."
     );
+  }
+  if (/\bno\s+application\s+fee\b/i.test(candidate.value || candidate.rawText)) {
+    return makeResult(field, EXTRACTION_STATUS.NOT_REQUIRED, {
+      reasonCode: "not_required",
+      value: "No application fee",
+      detail: candidate.rawText,
+      source: sourceFor(
+        snapshot,
+        "Application fee",
+        candidate.rawText,
+        candidate.sourceUrl
+      ),
+      copyText: ""
+    });
   }
   const amount = extractAmount(candidate.value);
   return amount
@@ -317,7 +407,62 @@ function parseDeadline(field, snapshot, basis) {
       candidate.intakeYear === basis.intakeYear &&
       candidate.feeStatus === basis.feeStatus
   );
+  if (candidates.length > 1) {
+    const categoryLabel = (candidate) => {
+      if (candidate.applicantCategory === "visa_required") {
+        return "Visa required";
+      }
+      if (candidate.applicantCategory === "visa_not_required") {
+        return "No visa required";
+      }
+      return "Candidate";
+    };
+    const detail = candidates
+      .map((candidate) => `${categoryLabel(candidate)}: ${candidate.value}`)
+      .join(" / ");
+    return makeResult(field, EXTRACTION_STATUS.MULTIPLE_CANDIDATES, {
+      reasonCode: "multiple_deadline_categories",
+      detail,
+      nextAction: "비자 필요 여부에 맞는 마감일을 원문에서 확인하세요.",
+      source: sourceFor(
+        snapshot,
+        "Application deadline",
+        candidates.map((candidate) => candidate.rawText).join(" "),
+        candidates[0]?.sourceUrl
+      ),
+      copyText: ""
+    });
+  }
   if (candidates.length !== 1) {
+    const mode = snapshot.applicationDeadlineModes?.[0];
+    if (candidates.length === 0 && mode) {
+      const isRolling = mode.kind === "rolling";
+      return makeResult(field, EXTRACTION_STATUS.ACTION_REQUIRED, {
+        reasonCode: isRolling ? "rolling_basis" : "staged_admission",
+        value: mode.value,
+        detail: mode.rawText,
+        nextAction: isRolling
+          ? "Rolling basis 안내를 원문에서 확인하고 가능한 시점에 지원하세요."
+          : "Staged admission의 단계별 일정과 현재 지원 가능한 라운드를 원문에서 확인하세요.",
+        source: sourceFor(
+          snapshot,
+          "Application deadline",
+          mode.rawText,
+          mode.sourceUrl
+        ),
+        copyText: ""
+      });
+    }
+    const link = snapshot.applicationDeadlineLinks?.[0];
+    if (link) {
+      return makeResult(field, EXTRACTION_STATUS.ACTION_REQUIRED, {
+        reasonCode: "linked_application_deadline",
+        detail: "지원 일정이 별도 지원 안내 페이지에 있을 수 있습니다.",
+        nextAction: "원문 보기로 현재 학년도의 지원 일정을 확인하세요.",
+        source: sourceFor(snapshot, "Application deadline", link.label, link.url),
+        copyText: ""
+      });
+    }
     return missing(
       field,
       snapshot,
@@ -360,6 +505,16 @@ function parseDeadline(field, snapshot, basis) {
 function parseDocument(field, snapshot, documentKey, sectionLabel) {
   const item = snapshot.supportingDocuments?.[documentKey];
   if (!item) {
+    const link = snapshot.supportingDocumentLinks?.[documentKey];
+    if (link) {
+      return makeResult(field, EXTRACTION_STATUS.ACTION_REQUIRED, {
+        reasonCode: "linked_supporting_documents",
+        detail: `${sectionLabel} 안내가 별도 지원 페이지에 있을 수 있습니다.`,
+        nextAction: "원문 보기로 지원 안내 페이지를 열어 해당 항목을 확인하세요.",
+        source: sourceFor(snapshot, sectionLabel, link.label, link.url),
+        copyText: ""
+      });
+    }
     return missing(
       field,
       snapshot,
@@ -372,7 +527,9 @@ function parseDocument(field, snapshot, documentKey, sectionLabel) {
   const status =
     item.status === "action_required"
       ? EXTRACTION_STATUS.ACTION_REQUIRED
-      : EXTRACTION_STATUS.FOUND;
+      : item.status === "not_required"
+        ? EXTRACTION_STATUS.NOT_REQUIRED
+        : EXTRACTION_STATUS.FOUND;
   return makeResult(field, status, {
     reasonCode: item.reasonCode,
     value: item.value,

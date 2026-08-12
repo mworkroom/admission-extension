@@ -49,11 +49,9 @@
           <button class="button button--secondary button--compact" id="analyze-button" type="button" hidden>다시 분석</button>
         </div>
         <div class="stale-notice" id="stale-notice" hidden>기준이 바뀌었습니다. 현재 페이지를 다시 분석해주세요.</div>
-        <ul class="field-list field-list--priority" id="priority-field-list"></ul>
-        <details class="other-results" id="other-results">
-          <summary>나머지 확인 항목 <span id="other-field-count"></span></summary>
-          <ul class="field-list" id="other-field-list"></ul>
-        </details>
+        <ul class="field-list" id="field-list"></ul>
+        <hr class="field-group-divider" id="field-group-divider" aria-hidden="true">
+        <ul class="field-list" id="supporting-field-list"></ul>
       </section>
     </main>
 

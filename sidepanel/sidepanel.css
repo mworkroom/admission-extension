@@ -60,7 +60,8 @@ h3 { font-size: 14px; }
   text-transform: uppercase;
 }
 
-.icon-button, .pencil-button, .text-button, .button, .copy-button, .tool-row {
+.icon-button, .pencil-button, .text-button, .button, .copy-button, .tool-row,
+.source-view-button {
   border: 0;
   cursor: pointer;
 }
@@ -192,10 +193,29 @@ h3 { font-size: 14px; }
 }
 .copy-button--copied { background: var(--color-success-text); }
 
-.source-details { color: var(--color-muted); font-size: 12px; }
-.source-details summary { cursor: pointer; }
-.source-details blockquote { margin: 8px 0; padding-left: 9px; border-left: 2px solid var(--color-border-strong); white-space: pre-wrap; }
-.source-details a, .memo-line a, .issue-note a { color: var(--color-brand); }
+.source-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 12px; }
+.source-view-button {
+  padding: 0;
+  background: transparent;
+  color: var(--color-brand);
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.source-view-link, .source-detail-link, .memo-line a, .issue-note a {
+  color: var(--color-brand);
+  font-size: 12px;
+  font-weight: 750;
+  text-underline-offset: 2px;
+}
+.source-view-button:hover, .source-view-button:focus-visible,
+.source-view-link:hover, .source-view-link:focus-visible,
+.source-detail-link:hover, .source-detail-link:focus-visible { color: var(--color-text); }
+.source-view-button:disabled { cursor: wait; opacity: 0.72; }
+.source-view-button--success { color: var(--color-success-text); }
+.source-view-button--failed { color: var(--color-warning-text); }
+.source-view-status { color: var(--color-muted); font-size: 11px; }
 
 .memo-line {
   margin-top: 11px;
@@ -213,14 +233,11 @@ h3 { font-size: 14px; }
 .memo-line details p { margin-top: 6px; white-space: pre-wrap; }
 .memo-line__meta { color: var(--color-muted); font-size: 11px; }
 
-.other-results { margin-top: 10px; }
-.other-results > summary {
-  padding: 10px 2px;
-  cursor: pointer;
-  color: var(--color-muted);
-  font-weight: 700;
+.field-group-divider {
+  margin: 18px 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-strong);
 }
-.other-results[open] > summary { color: var(--color-text); }
 
 .dialog {
   width: min(92vw, 470px);

@@ -79,10 +79,12 @@ export async function readQmulPage() {
   }
   const englishHeading = findHeading("English language requirements");
   const englishText = textOf(englishHeading?.parentElement);
-  const englishRequirement =
+  const englishRequirementSourceText =
     englishText.match(
       /Band\s*\d+\s*:\s*IELTS\s*\(Academic\).*?(?=We accept|See all|$)/i
     )?.[0] ?? "";
+  const englishRequirement =
+    englishRequirementSourceText.match(/\bBand\s*\d+\b/i)?.[0] ?? "";
   const englishLink = Array.from(
     englishHeading?.parentElement?.querySelectorAll("a") ?? []
   ).find((link) => /accepted English tests/i.test(textOf(link)));
@@ -163,6 +165,9 @@ export async function readQmulPage() {
     koreanAcademicRequirementCandidates,
     englishRequirement: normalize(englishRequirement),
     englishRequirementUrl: englishLink?.href || "",
+    englishRequirementSourceUrl: location.href,
+    englishRequirementSourceText: normalize(englishRequirementSourceText),
+    englishRequirementDetailUrl: englishLink?.href || "",
     tuitionFeeCandidates,
     applicationFeeCandidates: [],
     applicationDeadlines,
