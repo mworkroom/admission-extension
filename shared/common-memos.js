@@ -15,6 +15,49 @@ export const COMMON_MEMO_FIELD_KEYS = Object.freeze([
   "cv"
 ]);
 
+export const COMMON_MEMO_SUMMARY_OPTIONS = Object.freeze({
+  koreanAcademicRequirements: Object.freeze([
+    "별도 페이지",
+    "지원서 내부 확인",
+    "못 찾음"
+  ]),
+  englishRequirements: Object.freeze([
+    "별도 페이지",
+    "지원서 내부 확인",
+    "못 찾음"
+  ]),
+  applicationFee: Object.freeze([
+    "공통",
+    "No application fee",
+    "못 찾음"
+  ]),
+  universityApplicationDeadline: Object.freeze([
+    "공통",
+    "Rolling basis",
+    "Staged admission"
+  ]),
+  reference: Object.freeze([
+    "별도 페이지",
+    "지원서 내부 확인",
+    "못 찾음"
+  ]),
+  sopGuideline: Object.freeze([
+    "별도 페이지",
+    "지원서 내부 확인",
+    "못 찾음"
+  ]),
+  cv: Object.freeze([
+    "선택 사항",
+    "별도 페이지",
+    "지원서 내부 확인",
+    "못 찾음"
+  ])
+});
+
+export function getCommonMemoSummaryOptions(fieldKey) {
+  return [...(COMMON_MEMO_SUMMARY_OPTIONS[fieldKey] ?? [])];
+}
+
 export const MEMO_CONFIRMATION_STATE = Object.freeze({
   CONFIRMED: "confirmed",
   UNVERIFIED: "unverified"

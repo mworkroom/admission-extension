@@ -356,3 +356,30 @@ Nottingham의 경우 페이지 자체가 September 2027 입학과 2027년 학비
 - 15개 학교를 각각 완전히 별도 구현하지 않는다. 구조 extractor와 얇은 학교 profile의 혼합 구조를 사용한다.
 - 미지의 학교에서의 성공 기준은 완전 자동 추출이 아니라 빠른 수동 선택과 확인 이력 보존까지 포함한다.
 - 앞으로의 ROI는 “자동으로 채운 필드 수”가 아니라 “실제 작업 시간, 클릭 수, 반복 확인과 기억 부담을 얼마나 줄였는가”로 평가한다.
+
+## 13. Tuition Fee v2 구현 착수 결과
+
+- 구현일: 2026-08-13
+- 조사 범위: 영국 69개교, 호주 13개교, 총 82개교와 88개 과정 표본
+
+DOM 전수 조사 결과, 계획 당시 예상했던 6~8개보다 적은 다음 4개 핵심 extractor 계열로 수렴했다.
+
+1. `Table/Grid`
+2. `Key-value/Definition`
+3. `Card/Container`
+4. `Heading/Sibling/Text`
+
+국가·fee status·학년도·입학월 선택, accordion·tab·modal·지연 렌더, 공식 연결 fee 페이지, 미게시 상태, 복수 학년도는 별도 extractor가 아니라 공통 page adapter와 후보 상태로 처리한다. Manchester와 City St George처럼 복수 CMS가 확인된 학교만 URL·DOM 특징을 식별하는 얇은 template profile 대상으로 남긴다.
+
+첫 구현에서는 기존 generic reader의 평면 금액 후보를 유지하되 우선순위를 낮추고, 다음 구조 후보를 먼저 만든다.
+
+- 표: 열 제목, 행 제목, 셀 값을 한 후보 문맥으로 결합
+- 정의 목록: `dt` 라벨과 다음 `dd` 값을 결합
+- 카드: 학년도·audience 제목과 가장 작은 금액 자식 블록을 결합
+- 제목형: fee 제목부터 다음 동급 제목 전까지 형제 요소를 순서대로 결합
+
+금액 의미 분류에서는 가까운 `application fee`, `deposit`, `scholarship·funding`, 생활비·기타 비용 문맥을 tuition보다 우선 제외한다. Home·International과 학년도·입학 시기는 같은 구조 구간에서 찾고, 선택 어댑터가 실제로 활성화된 경우에만 선택된 fee status를 후보에 보완한다.
+
+현재 구현 검증에는 York, Bristol, Loughborough, Exeter, Southampton, Birmingham, Manchester, St Andrews 구조와 별도 공식 fee 페이지 표본이 포함된다. 실제 DOM 관계를 보존한 fixture에서 구조 계열, 금액, 학년도, fee status, 수학 형태, 미게시 상태, 보증금·장학금 제외를 함께 검증한다.
+
+남은 다음 단계는 설치된 Chrome 확장을 다시 로드한 뒤 대표 실제 페이지에서 검증하는 것이다. 특히 사이트에서 사용하는 custom select, modal, off-canvas처럼 표준 button·tab·select만으로 열리지 않는 제어는 실제 실패 URL이 확인될 때 재사용 가능한 adapter로 추가한다. 수동 원문 선택과 확인 이력 강화는 별도 UI 단계로 남아 있으며, 이번 구조 extractor 변경에는 포함하지 않았다.

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Admission Extension UI Harness</title>
-    <link rel="stylesheet" href="../sidepanel/sidepanel.css?v=20260805">
+    <link rel="stylesheet" href="../sidepanel/sidepanel.css?v=20260814">
   </head>
   <body>
     <main class="app-shell">
@@ -24,8 +24,9 @@
         <p class="course-name">MSc Finance</p>
         <p class="page-message">공개 페이지에서 확인 가능한 내용을 자동으로 찾습니다.</p>
         <div class="memo-line">
-          <div class="memo-line__header"><strong>SOP 질문과 길이는 과정마다 다름</strong><span class="memo-state">다시 확인</span></div>
-          <details><summary>상세</summary><p>지원서 안에서 문항을 다시 확인해야 함.</p><p class="memo-line__meta">마지막 확인 2025/26 · 2025-09-03</p></details>
+          <strong class="memo-line__title">지원서 안에서만 보이는 항목이 있음</strong>
+          <p class="memo-line__details">지원서 안에서 문항을 다시 확인해야 함.</p>
+          <p class="memo-state">9/3/25 마지막 확인 · 미확인</p>
         </div>
       </section>
       <section class="analysis-section">
@@ -41,19 +42,17 @@
             <div class="field-card__body"><p class="field-card__value">한국 학력 기준 확인 필요</p></div>
           </li>
           <li class="field-card" data-field-key="englishRequirements">
-            <div class="field-card__header"><h3 class="field-card__title">IELTS</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" id="open-memo-button" aria-label="IELTS 확인한 사항 편집">✎</button></div>
-            <div class="field-card__body"><p class="field-card__value">Level 2</p></div>
-            <div class="field-card__footer"><div class="source-actions"><button type="button" class="source-view-button">원문 보기</button><a href="#" class="source-detail-link">등급 세부 기준</a></div></div>
-            <div class="memo-line memo-line--confirmed"><div class="memo-line__header"><strong>Business 과정은 Band B 확인</strong><span class="memo-state">확인됨</span></div><details><summary>상세</summary><p class="memo-line__meta">2026/27 · 2026-08-05</p></details></div>
+            <div class="field-card__header"><h3 class="field-card__title">IELTS</h3><button class="pencil-button" id="open-memo-button" aria-label="IELTS 확인한 사항 편집">✎</button></div>
+            <div class="memo-line memo-line--confirmed"><strong class="memo-line__title">별도 페이지</strong><p class="memo-line__details">Business 과정은 Band B를 요구함.</p><a class="memo-line__source" href="#">출처</a><p class="memo-state">8/14/26 확인됨</p></div>
           </li>
           <li class="field-card" data-field-key="tuitionFee">
             <div class="field-card__header"><h3 class="field-card__title">Tuition Fee</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" aria-label="Tuition Fee 확인한 사항 편집">✎</button></div>
             <div class="field-card__body"><p class="field-card__value">£38,300</p></div>
             <div class="field-card__footer"><div class="source-actions"><a href="#" class="source-view-link">원문 보기</a></div><button class="copy-button">복사</button></div>
           </li>
-          <li class="field-card field-card--attention" data-field-key="applicationFee">
-            <div class="field-card__header"><h3 class="field-card__title">Application Fee</h3><span class="status-badge" aria-label="찾지 못함">–</span><button class="pencil-button" aria-label="Application Fee 확인한 사항 편집">✎</button></div>
-            <div class="field-card__body"><p class="field-card__detail">현재 페이지에서 찾지 못했습니다.</p></div>
+          <li class="field-card" data-field-key="applicationFee">
+            <div class="field-card__header"><h3 class="field-card__title">Application Fee</h3><button class="pencil-button" aria-label="Application Fee 확인한 사항 편집">✎</button></div>
+            <div class="memo-line memo-line--confirmed"><strong class="memo-line__title">No application fee</strong><p class="memo-line__details">공식 지원 안내에서 지원비가 없음을 확인함.</p><a class="memo-line__source" href="#">출처</a><p class="memo-state">8/14/26 확인됨</p></div>
           </li>
           <li class="field-card" data-field-key="universityApplicationDeadline">
             <div class="field-card__header"><h3 class="field-card__title">Application Deadline</h3><span class="status-badge status-badge--found" aria-label="확인됨">✓</span><button class="pencil-button" aria-label="Application Deadline 확인한 사항 편집">✎</button></div>
@@ -89,7 +88,7 @@
 
     <dialog class="dialog" id="memo-dialog">
       <div class="dialog__header"><div><p class="eyebrow">IELTS</p><h2>확인한 사항 수정</h2></div><button class="icon-button" id="close-memo-button" aria-label="확인한 사항 닫기">×</button></div>
-      <div class="form-stack"><label>한 줄 요약<input value="Business 과정은 Band B 확인"></label><label>상세 설명 <span class="optional">선택</span><textarea rows="4">학과 페이지와 지원서에서 다시 확인.</textarea></label><fieldset><legend>확인 상태</legend><label class="radio-row"><input type="radio" name="state"> 미확인</label><label class="radio-row"><input type="radio" name="state" checked> 확인됨</label></fieldset><div class="confirmation-date"><label>마지막 확인일<input type="date" value="2026-08-05"></label><button class="button button--secondary button--compact">오늘</button></div></div>
+      <div class="form-stack"><label>확인 내용 <span aria-hidden="true">*</span><select><option>별도 페이지</option><option>지원서 내부 확인</option><option>못 찾음</option></select></label><label>상세 설명 <span class="optional">선택</span><textarea rows="4">Business 과정은 Band B를 요구함.</textarea></label><label>출처 URL <span class="optional">선택</span><input type="url" value="https://www.kcl.ac.uk/"></label><fieldset><legend>확인 상태</legend><label class="radio-row"><input type="radio" name="state"> 미확인</label><label class="radio-row"><input type="radio" name="state" checked> 확인됨</label></fieldset><div class="confirmation-date"><label>마지막 확인일<input type="date" value="2026-08-14"></label><button class="button button--secondary button--compact">오늘</button></div></div>
     </dialog>
 
     <dialog class="dialog" id="issue-dialog">

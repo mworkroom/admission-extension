@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { readGenericPage } from "../content/read-generic-page.js";
 import { parseCourseSnapshot } from "../shared/course-parser.js";
@@ -80,7 +81,14 @@ class FakeNode {
 }
 
 class EntryFixtureNode {
-  constructor({ tag = "div", text = "", id = "", className = "", children = [] } = {}) {
+  constructor({
+    tag = "div",
+    text = "",
+    id = "",
+    className = "",
+    children = [],
+    attributes = {}
+  } = {}) {
     this.tagName = tag.toUpperCase();
     this._text = text;
     this.id = id;
@@ -90,7 +98,7 @@ class EntryFixtureNode {
     this.nextElementSibling = null;
     this.href = "";
     this.value = "";
-    this.attributes = {};
+    this.attributes = attributes;
     children.forEach((child, index) => {
       child.parentElement = this;
       child.nextElementSibling = children[index + 1] || null;
@@ -131,6 +139,16 @@ class EntryFixtureNode {
     if (value === "[role='group']") {
       return this.attributes.role === "group";
     }
+    if (value === "[role='tab']") {
+      return this.attributes.role === "tab";
+    }
+    if (value === "[role='tabpanel']") {
+      return this.attributes.role === "tabpanel";
+    }
+    const classContains = value.match(/^\[class\*='([^']+)'\]$/);
+    if (classContains) {
+      return this.className.includes(classContains[1]);
+    }
     if (value === "[class*='accordion']") {
       return this.className.includes("accordion");
     }
@@ -170,10 +188,34 @@ class EntryFixtureNode {
   getAttribute(name) {
     return this.attributes[name] || null;
   }
+
+  click() {
+    this.clicked = true;
+  }
 }
 
 const entryNode = (tag, text = "", options = {}) =>
   new EntryFixtureNode({ tag, text, ...options });
+
+const tuitionV2Fixtures = JSON.parse(
+  readFileSync(
+    new URL("./fixtures/tuition-fee-dom-v2.json", import.meta.url),
+    "utf8"
+  )
+);
+
+const tuitionFixtureNode = (definition) =>
+  entryNode(definition.tag, definition.text || "", {
+    id: definition.id || "",
+    className: definition.className || "",
+    attributes: definition.attributes || {},
+    children: (definition.children || []).map(tuitionFixtureNode)
+  });
+
+const collectFixtureNodes = (node) => [
+  ...node.children,
+  ...node.children.flatMap(collectFixtureNodes)
+];
 
 async function readEntryFixture(school, courseChildren) {
   const courseHeading = entryNode("h1", school + " test course");
@@ -258,6 +300,104 @@ async function readMoneyFixture(school, blocks) {
     else globalThis.location = previousLocation;
   }
 }
+
+test("Tuition Fee v2는 실제 DOM 관계를 4개 핵심 extractor 계열로 보존한다", async () => {
+  const basis = {
+    academicCycle: "2026/27",
+    intakeMonth: 9,
+    intakeYear: 2026,
+    studyMode: "full-time",
+    feeStatus: "international"
+  };
+
+  for (const fixture of tuitionV2Fixtures) {
+    const courseHeading = entryNode("h1", `${fixture.name} MSc`);
+    const fixtureRoot = tuitionFixtureNode(fixture.dom);
+    const root = entryNode("main", "", {
+      children: [courseHeading, fixtureRoot]
+    });
+    const previousDocument = globalThis.document;
+    const previousLocation = globalThis.location;
+    globalThis.document = {
+      title: `${fixture.name} MSc`,
+      body: root,
+      querySelector: (selector) =>
+        selector === "main, [role='main']" ? root : null,
+      querySelectorAll: () => []
+    };
+    globalThis.location = {
+      href: `https://${fixture.name.toLowerCase().replace(/[^a-z]+/g, "-")}.example.test/course`,
+      hostname: `${fixture.name.toLowerCase().replace(/[^a-z]+/g, "-")}.example.test`,
+      pathname: "/course"
+    };
+
+    try {
+      const payload = await readGenericPage({
+        siteKey: fixture.name,
+        universityName: fixture.name,
+        basis
+      });
+      const analysis = parseCourseSnapshot(payload, basis);
+      const tuition = analysis.fields.find((field) => field.key === "tuitionFee");
+
+      assert.equal(payload.tuitionExtraction.version, 2, fixture.name);
+      assert.ok(
+        payload.tuitionExtraction.families.includes(fixture.family),
+        `${fixture.name}: ${fixture.family} ${JSON.stringify({ tuition: payload.tuitionFeeCandidates, money: payload.moneyCandidates })}`
+      );
+      if (fixture.expected) {
+        assert.equal(
+          tuition.status,
+          "found",
+          `${fixture.name}: ${JSON.stringify(payload.tuitionFeeCandidates)}`
+        );
+        assert.equal(tuition.value, fixture.expected, fixture.name);
+      } else {
+        assert.equal(tuition.status, fixture.status, fixture.name);
+        assert.equal(tuition.reasonCode, fixture.reasonCode, fixture.name);
+      }
+      if (fixture.adapter) {
+        assert.equal(
+          payload.tuitionExtraction.pageAdapters[fixture.adapter],
+          true,
+          fixture.name
+        );
+      }
+      if (fixture.adapter === "audienceSelection") {
+        const internationalTab = collectFixtureNodes(root).find(
+          (node) =>
+            node.tagName === "BUTTON" &&
+            /^International fees$/i.test(node.innerText)
+        );
+        assert.equal(internationalTab.clicked, true, fixture.name);
+      }
+      if (fixture.name.includes("Southampton")) {
+        assert.deepEqual(
+          payload.tuitionFeeCandidates.map((candidate) => candidate.value),
+          ["£35,000"]
+        );
+        assert.ok(
+          payload.moneyCandidates.some(
+            (candidate) =>
+              candidate.category === "deposit" && candidate.value === "£2,000"
+          )
+        );
+        assert.ok(
+          payload.moneyCandidates.some(
+            (candidate) =>
+              candidate.category === "scholarship" &&
+              candidate.value === "£5,000"
+          )
+        );
+      }
+    } finally {
+      if (previousDocument === undefined) delete globalThis.document;
+      else globalThis.document = previousDocument;
+      if (previousLocation === undefined) delete globalThis.location;
+      else globalThis.location = previousLocation;
+    }
+  }
+});
 
 test("Generic Entry v2는 10개 대학 구조에서 학력 범위 후보를 선택한다", async () => {
   const fixtures = [
@@ -860,7 +1000,11 @@ test("Manchester 통합 과정 페이지는 학비·staged 일정·조건부 서
 
     const analysis = parseCourseSnapshot(payload, basis);
     const field = (key) => analysis.fields.find((item) => item.key === key);
-    assert.equal(field("tuitionFee").value, "£38,400");
+    assert.equal(
+      field("tuitionFee").value,
+      "£38,400",
+      JSON.stringify(payload.tuitionFeeCandidates)
+    );
     assert.equal(field("universityApplicationDeadline").value, "Staged admission");
     assert.equal(field("reference").status, "not_required");
     assert.equal(field("sopGuideline").status, "not_required");
@@ -1275,6 +1419,111 @@ test("generic reader는 같은 학교의 학비 링크 표를 한 단계 따라�
     assert.equal(payload.tuitionFeeCandidates[0].value, "£33,200.00");
     assert.equal(payload.tuitionFeeCandidates[0].academicCycle, "2026/27");
     assert.equal(payload.tuitionFeeCandidates[0].sourceUrl, tuitionLink.href);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousLocation === undefined) delete globalThis.location;
+    else globalThis.location = previousLocation;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+    if (previousParser === undefined) delete globalThis.DOMParser;
+    else globalThis.DOMParser = previousParser;
+  }
+});
+
+test("연결된 공식 fee 페이지에도 Tuition Fee v2 구조 extractor를 재사용한다", async () => {
+  const tuitionLink = new FakeNode({
+    tag: "a",
+    text: "Finance MSc fees and funding",
+    href: "https://example.test/postgraduate/finance/fees-and-funding"
+  });
+  const linkedRoot = entryNode("main", "", {
+    children: [
+      entryNode("h2", "Fees and funding"),
+      entryNode("div", "", {
+        className: "tuition-fee-card",
+        children: [
+          entryNode("h3", "2026/27 academic year"),
+          entryNode(
+            "p",
+            "International students · full-time tuition fee £42,000 per year"
+          ),
+          entryNode("p", "A tuition fee deposit of £2,000 is required.")
+        ]
+      })
+    ]
+  });
+  const courseHeading = new FakeNode({ tag: "h1", text: "Finance MSc" });
+  const root = new FakeNode({ children: [courseHeading, tuitionLink] });
+  root.querySelectorAll = (selector) => {
+    if (selector === "h1,h2,h3,h4,h5,h6") return [courseHeading];
+    if (selector === "a[href]") return [tuitionLink];
+    return [];
+  };
+  root.querySelector = (selector) =>
+    selector === "h1" ? courseHeading : null;
+
+  const previousDocument = globalThis.document;
+  const previousLocation = globalThis.location;
+  const previousFetch = globalThis.fetch;
+  const previousParser = globalThis.DOMParser;
+  globalThis.document = {
+    title: "Finance MSc",
+    body: root,
+    querySelector: (selector) =>
+      selector === "main, [role='main']" ? root : null,
+    querySelectorAll: () => []
+  };
+  globalThis.location = {
+    href: "https://example.test/postgraduate/finance",
+    hostname: "example.test",
+    pathname: "/postgraduate/finance"
+  };
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () => "<main>linked fixture</main>"
+  });
+  globalThis.DOMParser = class {
+    parseFromString() {
+      return {
+        body: linkedRoot,
+        querySelector: (selector) =>
+          selector === "main, [role='main']" ? linkedRoot : null
+      };
+    }
+  };
+
+  const basis = {
+    academicCycle: "2026/27",
+    intakeMonth: 9,
+    intakeYear: 2026,
+    studyMode: "full-time",
+    feeStatus: "international"
+  };
+  try {
+    const payload = await readGenericPage({
+      siteKey: "example",
+      universityName: "Example University",
+      basis
+    });
+    const analysis = parseCourseSnapshot(payload, basis);
+    const tuition = analysis.fields.find((field) => field.key === "tuitionFee");
+
+    assert.equal(
+      tuition.value,
+      "£42,000",
+      JSON.stringify(payload.tuitionFeeCandidates)
+    );
+    assert.equal(payload.tuitionFeeCandidates[0].sourceUrl, tuitionLink.href);
+    assert.equal(
+      payload.tuitionFeeCandidates[0].structureType,
+      "card_container"
+    );
+    assert.ok(
+      payload.tuitionExtraction.families.includes("Card/Container")
+    );
+    assert.equal(payload.tuitionExtraction.pageAdapters.linkedFeePage, true);
+    assert.doesNotMatch(tuition.source.excerpt, /£2,000/);
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;

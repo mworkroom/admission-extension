@@ -6,6 +6,7 @@ import {
   MEMO_CONFIRMATION_STATE,
   MEMO_VERIFICATION_STATUS,
   createCommonMemoRecord,
+  getCommonMemoSummaryOptions,
   getLatestMemoVerification,
   getMemoVerificationStatus,
   resolveCommonMemos,
@@ -133,10 +134,12 @@ const elements = {
   cancelMemoButton: document.querySelector("#cancel-memo-button"),
   saveMemoButton: document.querySelector("#save-memo-button"),
   deleteMemoButton: document.querySelector("#delete-memo-button"),
+  memoSummarySelectField: document.querySelector("#memo-summary-select-field"),
+  memoSummaryTextField: document.querySelector("#memo-summary-text-field"),
+  memoSummarySelect: document.querySelector("#memo-summary-select"),
   memoSummaryInput: document.querySelector("#memo-summary-input"),
   memoDetailsInput: document.querySelector("#memo-details-input"),
   memoSourceUrlInput: document.querySelector("#memo-source-url-input"),
-  memoSourceLabelInput: document.querySelector("#memo-source-label-input"),
   memoUnverifiedInput: document.querySelector("#memo-unverified-input"),
   memoConfirmedInput: document.querySelector("#memo-confirmed-input"),
   confirmationDateFields: document.querySelector("#confirmation-date-fields"),
@@ -264,55 +267,51 @@ function memoStatusCopy(record) {
   const status = getMemoVerificationStatus(record, currentBasis.academicCycle);
   const latest = getLatestMemoVerification(record);
   if (status === MEMO_VERIFICATION_STATUS.CONFIRMED) {
-    return { status, label: "확인됨", meta: `${currentBasis.academicCycle} · ${record.verificationByCycle[currentBasis.academicCycle].confirmedDate}` };
+    const current = record.verificationByCycle[currentBasis.academicCycle];
+    return { status, label: `${formatMemoDate(current.confirmedDate)} 확인됨` };
   }
   if (status === MEMO_VERIFICATION_STATUS.NEEDS_REVIEW) {
-    return { status, label: "다시 확인", meta: latest ? `마지막 확인 ${latest.academicCycle} · ${latest.confirmedDate}` : "현재 학년도 확인 기록 없음" };
+    return { status, label: latest ? `${formatMemoDate(latest.confirmedDate)} 확인 · 다시 확인 필요` : "다시 확인 필요" };
   }
   if (status === MEMO_VERIFICATION_STATUS.CHANGED_AFTER_VERIFICATION) {
-    return { status, label: "다시 확인", meta: "확인 후 내용이 변경됨" };
+    return { status, label: latest ? `${formatMemoDate(latest.confirmedDate)} 확인 후 내용 변경 · 다시 확인 필요` : "내용 변경 · 다시 확인 필요" };
   }
-  return { status, label: "미확인", meta: latest ? `마지막 확인 ${latest.academicCycle} · ${latest.confirmedDate}` : "확인 기록 없음" };
+  return { status, label: latest ? `${formatMemoDate(latest.confirmedDate)} 마지막 확인 · 미확인` : "미확인" };
+}
+
+function formatMemoDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
+  if (!match) return value ?? "";
+  return `${Number(match[2])}/${Number(match[3])}/${match[1].slice(-2)}`;
 }
 
 function createMemoLine(record) {
   const statusCopy = memoStatusCopy(record);
   const box = document.createElement("div");
   box.className = `memo-line ${statusCopy.status === MEMO_VERIFICATION_STATUS.CONFIRMED ? "memo-line--confirmed" : ""}`;
-  const header = document.createElement("div");
-  header.className = "memo-line__header";
   const title = document.createElement("strong");
+  title.className = "memo-line__title";
   title.textContent = record.summary;
-  const state = document.createElement("span");
+  box.append(title);
+  if (record.details) {
+    const description = document.createElement("p");
+    description.className = "memo-line__details";
+    description.textContent = record.details;
+    box.append(description);
+  }
+  if (record.sourceUrl) {
+    const source = document.createElement("a");
+    source.className = "memo-line__source";
+    source.href = record.sourceUrl;
+    source.target = "_blank";
+    source.rel = "noreferrer";
+    source.textContent = "출처";
+    box.append(source);
+  }
+  const state = document.createElement("p");
   state.className = "memo-state";
   state.textContent = statusCopy.label;
-  header.append(title, state);
-  box.append(header);
-
-  if (record.details || record.sourceUrl || statusCopy.meta) {
-    const details = document.createElement("details");
-    const summary = document.createElement("summary");
-    summary.textContent = "상세";
-    details.append(summary);
-    if (record.details) {
-      const description = document.createElement("p");
-      description.textContent = record.details;
-      details.append(description);
-    }
-    const meta = document.createElement("p");
-    meta.className = "memo-line__meta";
-    meta.textContent = statusCopy.meta;
-    details.append(meta);
-    if (record.sourceUrl) {
-      const source = document.createElement("a");
-      source.href = record.sourceUrl;
-      source.target = "_blank";
-      source.rel = "noreferrer";
-      source.textContent = record.sourceLabel || "출처 열기";
-      details.append(source);
-    }
-    box.append(details);
-  }
+  box.append(state);
   return box;
 }
 
@@ -473,6 +472,7 @@ function createPencilButton(fieldKey, record) {
 function createFieldCard(field) {
   const memoRecord = getMemoRecords(field.key)[0] ?? null;
   const attention =
+    !memoRecord &&
     field.status !== EXTRACTION_STATUS.FOUND &&
     field.status !== EXTRACTION_STATUS.NOT_REQUIRED;
   const card = document.createElement("li");
@@ -484,7 +484,9 @@ function createFieldCard(field) {
   const title = document.createElement("h3");
   title.className = "field-card__title";
   title.textContent = FIELD_LABELS[field.key] ?? field.label;
-  header.append(title, createStatusBadge(field.status), createPencilButton(field.key, memoRecord));
+  header.append(title);
+  if (!memoRecord) header.append(createStatusBadge(field.status));
+  header.append(createPencilButton(field.key, memoRecord));
 
   const body = document.createElement("div");
   body.className = "field-card__body";
@@ -520,9 +522,13 @@ function createFieldCard(field) {
     footer.append(copyButton);
   }
 
-  card.append(header, body);
-  if (footer.childElementCount) card.append(footer);
-  if (memoRecord) card.append(createMemoLine(memoRecord));
+  card.append(header);
+  if (memoRecord) {
+    card.append(createMemoLine(memoRecord));
+  } else {
+    card.append(body);
+    if (footer.childElementCount) card.append(footer);
+  }
   return card;
 }
 
@@ -711,6 +717,28 @@ function renderConfirmationFields() {
   elements.confirmationDateFields.hidden = !elements.memoConfirmedInput.checked;
 }
 
+function renderMemoSummaryField(fieldKey, summary = "") {
+  const options = getCommonMemoSummaryOptions(fieldKey);
+  const usesSelect = options.length > 0;
+  elements.memoSummarySelectField.hidden = !usesSelect;
+  elements.memoSummaryTextField.hidden = usesSelect;
+  elements.memoSummarySelect.required = usesSelect;
+  elements.memoSummaryInput.required = !usesSelect;
+  elements.memoSummarySelect.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "선택해주세요";
+  elements.memoSummarySelect.append(placeholder);
+  for (const optionValue of options) {
+    const option = document.createElement("option");
+    option.value = optionValue;
+    option.textContent = optionValue;
+    elements.memoSummarySelect.append(option);
+  }
+  elements.memoSummarySelect.value = options.includes(summary) ? summary : "";
+  elements.memoSummaryInput.value = usesSelect ? "" : summary;
+}
+
 function showMemoDialog(fieldKey, record = null) {
   if (!canManageMemos() || !COMMON_MEMO_FIELD_KEYS.includes(fieldKey)) return;
   const field = getField(fieldKey);
@@ -722,10 +750,9 @@ function showMemoDialog(fieldKey, record = null) {
   elements.memoDialogEyebrow.textContent = FIELD_LABELS[fieldKey];
   elements.memoDialogTitle.textContent = resolvedRecord ? "확인한 사항 수정" : "확인한 사항 추가";
   elements.memoContext.textContent = `${getUniversityName()} · ${FIELD_LABELS[fieldKey]}`;
-  elements.memoSummaryInput.value = resolvedRecord?.summary ?? "";
+  renderMemoSummaryField(fieldKey, resolvedRecord?.summary ?? "");
   elements.memoDetailsInput.value = resolvedRecord?.details ?? "";
   elements.memoSourceUrlInput.value = resolvedRecord?.sourceUrl ?? (isSafeHttpUrl(field?.source?.url) ? field.source.url : currentTab.url);
-  elements.memoSourceLabelInput.value = resolvedRecord?.sourceLabel ?? "";
   const confirmed = resolvedRecord?.confirmationState === MEMO_CONFIRMATION_STATE.CONFIRMED;
   elements.memoConfirmedInput.checked = confirmed;
   elements.memoUnverifiedInput.checked = !confirmed;
@@ -734,7 +761,7 @@ function showMemoDialog(fieldKey, record = null) {
   elements.memoError.textContent = "";
   renderConfirmationFields();
   elements.memoDialog.showModal();
-  elements.memoSummaryInput.focus();
+  (elements.memoSummarySelectField.hidden ? elements.memoSummaryInput : elements.memoSummarySelect).focus();
 }
 
 function setMemoSaving(saving) {
@@ -748,13 +775,14 @@ function setMemoSaving(saving) {
 async function persistMemo(event) {
   event.preventDefault();
   if (isSavingMemo || !canManageMemos()) return;
-  const summary = elements.memoSummaryInput.value.trim();
+  const usesSummarySelect = !elements.memoSummarySelectField.hidden;
+  const summary = (usesSummarySelect ? elements.memoSummarySelect.value : elements.memoSummaryInput.value).trim();
   const sourceUrl = elements.memoSourceUrlInput.value.trim();
   const confirmed = elements.memoConfirmedInput.checked;
   const confirmedDate = elements.memoConfirmedDateInput.value;
   if (!summary) {
-    elements.memoError.textContent = "한 줄 요약을 입력해주세요.";
-    elements.memoSummaryInput.focus();
+    elements.memoError.textContent = usesSummarySelect ? "확인 내용을 선택해주세요." : "한 줄 요약을 입력해주세요.";
+    (usesSummarySelect ? elements.memoSummarySelect : elements.memoSummaryInput).focus();
     return;
   }
   if (!isSafeHttpUrl(sourceUrl)) {
@@ -778,7 +806,7 @@ async function persistMemo(event) {
       summary,
       details: elements.memoDetailsInput.value,
       sourceUrl,
-      sourceLabel: elements.memoSourceLabelInput.value,
+      sourceLabel: existing?.sourceLabel ?? "",
       confirmationState: confirmed ? MEMO_CONFIRMATION_STATE.CONFIRMED : MEMO_CONFIRMATION_STATE.UNVERIFIED,
       verificationByCycle: existing?.verificationByCycle ?? {}
     });

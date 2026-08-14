@@ -1,0 +1,170 @@
+[
+  {
+    "name": "York table grid",
+    "family": "Table/Grid",
+    "expected": "£34,500",
+    "dom": {
+      "tag": "section",
+      "children": [
+        { "tag": "h2", "text": "Fees" },
+        {
+          "tag": "table",
+          "children": [
+            {
+              "tag": "tr",
+              "children": [
+                { "tag": "th", "text": "Academic year and study mode" },
+                { "tag": "th", "text": "Home" },
+                { "tag": "th", "text": "International" }
+              ]
+            },
+            {
+              "tag": "tr",
+              "children": [
+                { "tag": "th", "text": "2026/27 full-time" },
+                { "tag": "td", "text": "£17,500" },
+                { "tag": "td", "text": "£34,500" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "Bristol definition list",
+    "family": "Key-value/Definition",
+    "expected": "£33,900",
+    "dom": {
+      "tag": "section",
+      "children": [
+        { "tag": "h2", "text": "Fees and funding" },
+        {
+          "tag": "dl",
+          "children": [
+            { "tag": "dt", "text": "International students · 2026/27 · full-time tuition fee" },
+            { "tag": "dd", "text": "£33,900 per year" },
+            { "tag": "dt", "text": "Home students · 2026/27 · full-time tuition fee" },
+            { "tag": "dd", "text": "£18,500 per year" }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "Loughborough academic-year cards",
+    "family": "Card/Container",
+    "expected": "£30,900",
+    "dom": {
+      "tag": "section",
+      "children": [
+        { "tag": "h2", "text": "Tuition fees" },
+        {
+          "tag": "div",
+          "className": "fee-card",
+          "children": [
+            { "tag": "h3", "text": "2026/27" },
+            { "tag": "p", "text": "International full-time tuition fee £30,900" },
+            { "tag": "p", "text": "Home full-time tuition fee £13,700" }
+          ]
+        },
+        {
+          "tag": "div",
+          "className": "fee-card",
+          "children": [
+            { "tag": "h3", "text": "2027/28" },
+            { "tag": "p", "text": "International full-time tuition fee £31,750" },
+            { "tag": "p", "text": "Home full-time tuition fee £14,000" }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "Exeter heading and sibling",
+    "family": "Heading/Sibling/Text",
+    "expected": "£32,600",
+    "dom": {
+      "tag": "section",
+      "children": [
+        { "tag": "h2", "text": "International fees per year" },
+        { "tag": "p", "text": "2026/27 entry: £32,600 full-time" },
+        { "tag": "h2", "text": "How to apply" }
+      ]
+    }
+  },
+  {
+    "name": "Southampton hidden fee panel with deposit",
+    "family": "Card/Container",
+    "expected": "£35,000",
+    "dom": {
+      "tag": "section",
+      "className": "course-fees",
+      "attributes": { "role": "tabpanel", "hidden": "" },
+      "children": [
+        { "tag": "h2", "text": "Fees" },
+        { "tag": "p", "text": "A payment of £2,000 is required as a tuition fee deposit before enrolment." },
+        { "tag": "p", "text": "International full-time tuition fee for 2026/27: £35,000." },
+        { "tag": "p", "text": "Scholarships worth £5,000 may be available." }
+      ]
+    }
+  },
+  {
+    "name": "Manchester ordered suffix labels",
+    "family": "Heading/Sibling/Text",
+    "expected": "£38,400",
+    "dom": {
+      "tag": "section",
+      "children": [
+        { "tag": "h2", "text": "Tuition fees" },
+        { "tag": "p", "text": "2026/27 full-time tuition fees: £16,300 UK students; £38,400 International students." },
+        { "tag": "h2", "text": "Entry requirements" }
+      ]
+    }
+  },
+  {
+    "name": "Birmingham international audience panel",
+    "family": "Card/Container",
+    "expected": "£35,460",
+    "adapter": "audienceSelection",
+    "dom": {
+      "tag": "section",
+      "className": "fees-panel",
+      "children": [
+        { "tag": "h2", "text": "Course fees" },
+        {
+          "tag": "button",
+          "text": "Home fees",
+          "attributes": { "role": "tab", "aria-controls": "fees-home", "aria-selected": "true" }
+        },
+        {
+          "tag": "button",
+          "text": "International fees",
+          "attributes": { "role": "tab", "aria-controls": "fees-international", "aria-selected": "false" }
+        },
+        {
+          "tag": "div",
+          "className": "fee-card",
+          "attributes": { "role": "tabpanel" },
+          "children": [
+            { "tag": "p", "text": "International students · September 2026 · full-time tuition fee £35,460" }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "St Andrews unpublished state",
+    "family": "Card/Container",
+    "status": "action_required",
+    "reasonCode": "fee_unpublished",
+    "dom": {
+      "tag": "section",
+      "className": "fee-card",
+      "children": [
+        { "tag": "h2", "text": "Tuition fees" },
+        { "tag": "p", "text": "International tuition fees for 2026/27 are not yet set." }
+      ]
+    }
+  }
+]

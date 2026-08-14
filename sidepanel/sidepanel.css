@@ -38,7 +38,7 @@ button { color: inherit; }
 
 .topbar, .section-heading, .identity-card__heading, .dialog__header,
 .dialog__actions, .issue-filter, .field-card__header, .field-card__footer,
-.memo-line__header, .confirmation-date {
+.confirmation-date {
   display: flex;
   align-items: center;
 }
@@ -225,13 +225,11 @@ h3 { font-size: 14px; }
   background: var(--color-warning-bg);
 }
 .memo-line--confirmed { border-left-color: var(--color-success-text); background: var(--color-success-bg); }
-.memo-line__header { gap: 7px; }
-.memo-line__header strong { font-size: 13px; }
-.memo-state { margin-left: auto; color: var(--color-warning-text); font-size: 11px; font-weight: 800; }
+.memo-line__title { display: block; font-size: 13px; }
+.memo-line__details { margin-top: 6px; color: var(--color-text); font-size: 12px; white-space: pre-wrap; }
+.memo-line__source { display: block; width: fit-content; margin-top: 6px; }
+.memo-state { margin-top: 6px; color: var(--color-warning-text); font-size: 11px; font-weight: 800; }
 .memo-line--confirmed .memo-state { color: var(--color-success-text); }
-.memo-line details { margin-top: 6px; color: var(--color-muted); font-size: 12px; }
-.memo-line details p { margin-top: 6px; white-space: pre-wrap; }
-.memo-line__meta { color: var(--color-muted); font-size: 11px; }
 
 .field-group-divider {
   margin: 18px 0;

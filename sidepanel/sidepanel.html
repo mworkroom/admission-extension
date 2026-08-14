@@ -103,10 +103,10 @@
         </div>
         <p class="dialog-context" id="memo-context"></p>
         <div class="form-stack">
-          <label>한 줄 요약 <span aria-hidden="true">*</span><input id="memo-summary-input" maxlength="500" required placeholder="다음 업무에서 바로 알아야 할 내용"></label>
+          <label id="memo-summary-select-field" hidden>확인 내용 <span aria-hidden="true">*</span><select id="memo-summary-select" required><option value="">선택해주세요</option></select></label>
+          <label id="memo-summary-text-field">한 줄 요약 <span aria-hidden="true">*</span><input id="memo-summary-input" maxlength="500" required placeholder="다음 업무에서 바로 알아야 할 내용"></label>
           <label>상세 설명 <span class="optional">선택</span><textarea id="memo-details-input" rows="4" maxlength="4000"></textarea></label>
           <label>출처 URL <span class="optional">선택</span><input id="memo-source-url-input" type="url" placeholder="https://..."></label>
-          <label>출처 이름 <span class="optional">선택</span><input id="memo-source-label-input" maxlength="500"></label>
           <fieldset>
             <legend>확인 상태</legend>
             <label class="radio-row"><input name="memo-state" id="memo-unverified-input" type="radio" value="unverified" checked> 미확인</label>

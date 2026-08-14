@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  COMMON_MEMO_SUMMARY_OPTIONS,
   MEMO_CONFIRMATION_STATE,
   MEMO_VERIFICATION_STATUS,
   createCommonMemoRecord,
+  getCommonMemoSummaryOptions,
   getMemoVerificationStatus,
   migrateCommonMemoRecordV1,
   resolveCommonMemos,
@@ -25,6 +27,18 @@ function createMemo(overrides = {}) {
     ...overrides
   }, NOW);
 }
+
+test("항목별 수동 확인 선택지를 지정된 순서로 제공한다", () => {
+  assert.deepEqual(getCommonMemoSummaryOptions("koreanAcademicRequirements"), ["별도 페이지", "지원서 내부 확인", "못 찾음"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("englishRequirements"), ["별도 페이지", "지원서 내부 확인", "못 찾음"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("reference"), ["별도 페이지", "지원서 내부 확인", "못 찾음"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("sopGuideline"), ["별도 페이지", "지원서 내부 확인", "못 찾음"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("cv"), ["별도 페이지", "지원서 내부 확인", "못 찾음"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("applicationFee"), ["No application fee", "못 찾음"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("universityApplicationDeadline"), ["Rolling basis", "Staged admission"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("tuitionFee"), []);
+  assert.ok(Object.isFrozen(COMMON_MEMO_SUMMARY_OPTIONS));
+});
 
 test("대학 전체와 항목별 한 줄 메모를 만들고 출처는 선택으로 둔다", () => {
   const school = createMemo({ fieldKey: "", summary: "지원서 안에서만 보이는 항목이 있음", sourceUrl: "" });

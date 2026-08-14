@@ -1,15 +1,112 @@
 export async function readGenericPage(options = {}) {
   const normalize = (value) =>
     String(value ?? "").replace(/\s+/g, " ").trim();
-  const textOf = (node) =>
-    normalize(
-      typeof node?.innerText === "string" ? node.innerText : node?.textContent
+  const textOf = (node) => {
+    const rendered = normalize(
+      typeof node?.innerText === "string" ? node.innerText : ""
     );
+    return rendered || normalize(node?.textContent);
+  };
   const root =
     document.querySelector("main, [role='main']") ||
     document.body;
   const sourceUrl = location.href;
   const hostname = location.hostname.toLowerCase().replace(/^www\./, "");
+  const tuitionPagePreparation = {
+    revealedFeeControls: 0,
+    selectedFeeAudience: false
+  };
+  const feeControlPattern =
+    /^(?:tuition|course|programme|international|overseas)?\s*fees?(?:\s+and\s+(?:funding|scholarships?))?(?:\s+per\s+year)?$/i;
+  const excludedFeeControlPattern =
+    /\b(?:application\s+fee|deposit|scholarship|bursary|funding\s+application)\b/i;
+  const audienceOnlyFeeControlPattern =
+    /^(?:home|UK|domestic|international|overseas|non[- ]?UK)(?:\s+students?)?\s+fees?$/i;
+  const clickControl = (control) => {
+    if (!control || typeof control.click !== "function") return false;
+    control.click();
+    return true;
+  };
+  const feeControls = Array.from(
+    root?.querySelectorAll("button,[role='tab'],summary") ?? []
+  ).filter((control) => {
+    const label = textOf(control);
+    return (
+      label &&
+      feeControlPattern.test(label) &&
+      !excludedFeeControlPattern.test(label) &&
+      !audienceOnlyFeeControlPattern.test(label)
+    );
+  });
+  for (const control of feeControls.slice(0, 3)) {
+    if (control.tagName === "SUMMARY" && control.parentElement) {
+      control.parentElement.open = true;
+      tuitionPagePreparation.revealedFeeControls += 1;
+      continue;
+    }
+    if (control.getAttribute?.("aria-expanded") !== "true" && clickControl(control)) {
+      tuitionPagePreparation.revealedFeeControls += 1;
+    }
+  }
+  const requestedFeeStatus = normalize(options.basis?.feeStatus).toLowerCase();
+  const audienceControlPattern = requestedFeeStatus === "home"
+    ? /^(?:home|uk|domestic)(?:\s+(?:students?|fees?))?$/i
+    : /^(?:international|overseas|non[- ]?uk)(?:\s+(?:students?|fees?))?$/i;
+  const audienceControl = Array.from(
+    root?.querySelectorAll("button,[role='tab']") ?? []
+  ).find((control) => {
+    if (!audienceControlPattern.test(textOf(control))) return false;
+    const target = normalize(
+      `${control.getAttribute?.("aria-controls") || ""} ${
+        control.getAttribute?.("data-target") || ""
+      } ${control.id || ""} ${control.className || ""}`
+    );
+    const container = control.closest?.(
+      "section,article,[class*='fee'],[class*='cost'],[class*='tuition']"
+    );
+    return /fee|cost|tuition/i.test(`${target} ${textOf(container)}`);
+  });
+  const audienceSelect = Array.from(
+    root?.querySelectorAll("select") ?? []
+  )
+    .map((select) => {
+      const option = Array.from(select.querySelectorAll("option") ?? []).find(
+        (candidate) => audienceControlPattern.test(textOf(candidate))
+      );
+      const identity = normalize(
+        `${select.getAttribute?.("aria-label") || ""} ${
+          select.getAttribute?.("name") || ""
+        } ${select.id || ""} ${select.className || ""}`
+      );
+      const container = select.closest?.(
+        "section,article,[class*='fee'],[class*='cost'],[class*='tuition']"
+      );
+      return option && /fee|cost|tuition/i.test(`${identity} ${textOf(container)}`)
+        ? { select, option }
+        : null;
+    })
+    .find(Boolean);
+  if (
+    audienceControl &&
+    audienceControl.getAttribute?.("aria-selected") !== "true" &&
+    clickControl(audienceControl)
+  ) {
+    tuitionPagePreparation.selectedFeeAudience = true;
+  }
+  if (audienceSelect && audienceSelect.select.value !== audienceSelect.option.value) {
+    audienceSelect.select.value = audienceSelect.option.value;
+    if (typeof audienceSelect.select.dispatchEvent === "function") {
+      audienceSelect.select.dispatchEvent(new Event("input", { bubbles: true }));
+      audienceSelect.select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    tuitionPagePreparation.selectedFeeAudience = true;
+  }
+  if (
+    tuitionPagePreparation.revealedFeeControls > 0 ||
+    tuitionPagePreparation.selectedFeeAudience
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 180));
+  }
   if (options.expandEnglishAccordion) {
     const englishButton = Array.from(root?.querySelectorAll("button") ?? []).find(
       (button) => /English language requirements?/i.test(textOf(button))
@@ -499,6 +596,28 @@ export async function readGenericPage(options = {}) {
         }
       : { intakeMonth: 0, intakeYear: 0 };
   };
+  const nearestIntake = (text, amountIndex) => {
+    const matches = [];
+    for (const match of text.matchAll(
+      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})\b/gi
+    )) {
+      const context = text.slice(
+        Math.max(0, match.index - 70),
+        Math.min(text.length, match.index + match[0].length + 70)
+      );
+      if (!/\b(?:entry|start(?:ing|s)?|intake|fees?|academic\s+year)\b/i.test(context)) {
+        continue;
+      }
+      matches.push({
+        ...intakeFrom(match[0]),
+        distance: Math.abs(amountIndex - match.index)
+      });
+    }
+    const nearest = matches
+      .filter((match) => match.distance <= 240)
+      .sort((left, right) => left.distance - right.distance)[0];
+    return nearest || { intakeMonth: 0, intakeYear: 0 };
+  };
 
   const academicCyclesFrom = (text) => {
     const cycles = [];
@@ -604,16 +723,36 @@ export async function readGenericPage(options = {}) {
         const distance = matchEnd <= start
           ? start - matchEnd
           : match.index >= end
-            ? match.index - end + 24
+            ? match.index - end
             : 0;
         if (distance <= 220) {
           matches.push({
             category: definition.category,
             distance,
-            priority: definition.priority
+            priority: definition.priority,
+            label: match[0],
+            index: match.index
           });
         }
       }
+    }
+    const nearbyExclusions = matches.filter(
+      (match) =>
+        match.priority > 1 &&
+        match.distance <= 90 &&
+        !(
+          match.category === "scholarship" &&
+          /^funding$/i.test(match.label) &&
+          /fees?\s+and\s+$/i.test(
+            text.slice(Math.max(0, match.index - 18), match.index)
+          )
+        )
+    );
+    if (nearbyExclusions.length > 0) {
+      return nearbyExclusions.sort(
+        (left, right) =>
+          right.priority - left.priority || left.distance - right.distance
+      )[0].category;
     }
     return matches.sort(
       (left, right) =>
@@ -629,7 +768,7 @@ export async function readGenericPage(options = {}) {
       const distance = matchEnd <= start
         ? start - matchEnd
         : match.index >= end
-          ? match.index - end + 18
+          ? match.index - end
           : 0;
       if (distance > 160) continue;
       const label = match[0];
@@ -637,10 +776,30 @@ export async function readGenericPage(options = {}) {
         value: /international|overseas|non[- ]?uk|\bEU\b|South\s+Korea/i.test(label)
           ? "international"
           : "home",
-        distance
+        distance,
+        index: match.index,
+        end: matchEnd
       });
     }
-    return statuses.sort((left, right) => left.distance - right.distance)[0]
+    const leftBoundary = Math.max(
+      text.lastIndexOf("|", start - 1),
+      text.lastIndexOf(";", start - 1),
+      text.lastIndexOf(". ", start - 1)
+    );
+    const possibleRightBoundaries = [
+      text.indexOf("|", end),
+      text.indexOf(";", end),
+      text.indexOf(". ", end)
+    ].filter((index) => index !== -1);
+    const rightBoundary = possibleRightBoundaries.length > 0
+      ? Math.min(...possibleRightBoundaries)
+      : text.length;
+    const sameSegment = statuses.filter(
+      (status) =>
+        status.index > leftBoundary && status.end <= rightBoundary
+    );
+    return (sameSegment.length > 0 ? sameSegment : statuses)
+      .sort((left, right) => left.distance - right.distance)[0]
       ?.value || "";
   };
   const nearestAcademicCycle = (text, amountIndex) => {
@@ -662,7 +821,8 @@ export async function readGenericPage(options = {}) {
     rawText,
     candidateSourceUrl = sourceUrl,
     fallbackCategory = "",
-    sourceRank = 20
+    sourceRank = 20,
+    metadata = {}
   ) => {
     const text = normalize(rawText);
     const candidates = [];
@@ -676,15 +836,97 @@ export async function readGenericPage(options = {}) {
         end,
         fallbackCategory
       );
-      let feeStatus = nearestFeeStatus(text, start, end);
-      if (!feeStatus && category === "tuition") {
-        feeStatus = normalize(options.basis?.feeStatus) || "international";
-      }
-      const intake = intakeFrom(text);
+      const feeStatus =
+        nearestFeeStatus(text, start, end) || normalize(metadata.feeStatus);
+      const intake = nearestIntake(text, start);
       candidates.push({
         category,
         value: match[0],
-        academicCycle: nearestAcademicCycle(text, start),
+        academicCycle:
+          normalize(metadata.academicCycle) || nearestAcademicCycle(text, start),
+        intakeMonth: Number(metadata.intakeMonth) || intake.intakeMonth,
+        intakeYear: Number(metadata.intakeYear) || intake.intakeYear,
+        studyMode:
+          normalize(metadata.studyMode) ||
+          (/\bpart[- ]?time\b/i.test(text)
+            ? "part-time"
+            : /\bfull[- ]?time\b/i.test(text)
+              ? "full-time"
+              : ""),
+        feeStatus,
+        rawText: limit(text, 900),
+        sourceUrl: candidateSourceUrl,
+        publicationStatus: "published",
+        sourceRank,
+        structureType: normalize(metadata.structureType) || "ordered_text"
+      });
+    }
+    return candidates;
+  };
+
+  const safeQueryAll = (scope, selector) => {
+    try {
+      return Array.from(scope?.querySelectorAll?.(selector) ?? []);
+    } catch {
+      return [];
+    }
+  };
+  const elementIdentity = (node) =>
+    normalize(
+      [
+        node?.getAttribute?.("aria-label"),
+        node?.getAttribute?.("data-label"),
+        node?.getAttribute?.("data-title"),
+        node?.id,
+        typeof node?.className === "string" ? node.className : ""
+      ]
+        .filter(Boolean)
+        .join(" ")
+    );
+  const closestHeadingText = (node) => {
+    let branch = node;
+    let parent = node?.parentElement;
+    for (let depth = 0; parent && depth < 5; depth += 1) {
+      const siblings = Array.from(parent.children ?? []);
+      const branchIndex = siblings.indexOf(branch);
+      for (let index = branchIndex - 1; index >= 0; index -= 1) {
+        const sibling = siblings[index];
+        const siblingLevel = headingLevel(sibling);
+        if (siblingLevel !== null && siblingLevel > 1) return textOf(sibling);
+        const nestedHeadings = safeQueryAll(sibling, "h2,h3,h4,h5,h6");
+        if (nestedHeadings.length > 0) return textOf(nestedHeadings.at(-1));
+      }
+      const ownHeading = safeQueryAll(parent, "h2,h3,h4,h5,h6").find(
+        (heading) => heading !== node && textOf(heading)
+      );
+      if (ownHeading) return textOf(ownHeading);
+      branch = parent;
+      parent = parent.parentElement;
+    }
+    return "";
+  };
+  const tuitionContextPattern =
+    /\b(?:tuition|course|programme|program|international|overseas|home|domestic|student)\s+fees?\b|\bfees?\s+(?:and\s+(?:funding|scholarships?)|per\s+(?:year|annum)|for\s+(?:20\d{2}|September|January)|status)\b|(?:^|\|)\s*fees?\s*(?:\||$)|\bcost\s+of\s+(?:study|attendance)\b/i;
+  const unpublishedFeePattern =
+    /\b(?:TBA|TBC|to\s+be\s+(?:announced|confirmed)|not\s+yet\s+(?:set|available|published|confirmed)|fees?\s+(?:are|is)\s+(?:currently\s+)?unavailable|tuition\s+fee\s+information[^.]{0,80}unavailable)\b/i;
+  const selectedFeeStatus = tuitionPagePreparation.selectedFeeAudience
+    ? requestedFeeStatus
+    : "";
+  const unavailableCandidateFrom = (
+    rawText,
+    candidateSourceUrl,
+    sourceRank,
+    structureType
+  ) => {
+    const text = normalize(rawText);
+    const unavailable = text.match(unpublishedFeePattern)?.[0] || "";
+    if (!unavailable || !tuitionContextPattern.test(text)) return [];
+    const intake = intakeFrom(text);
+    return [
+      {
+        category: "tuition",
+        value: normalize(unavailable),
+        academicCycle: academicCycleFrom(text) || singlePageAcademicCycle,
         intakeMonth: intake.intakeMonth,
         intakeYear: intake.intakeYear,
         studyMode: /\bpart[- ]?time\b/i.test(text)
@@ -692,18 +934,270 @@ export async function readGenericPage(options = {}) {
           : /\bfull[- ]?time\b/i.test(text)
             ? "full-time"
             : "",
-        feeStatus,
+        feeStatus:
+          nearestFeeStatus(text, text.indexOf(unavailable), text.length) ||
+          selectedFeeStatus,
         rawText: limit(text, 900),
         sourceUrl: candidateSourceUrl,
-        publicationStatus: "published",
-        sourceRank
-      });
+        publicationStatus: "unpublished",
+        sourceRank,
+        structureType
+      }
+    ];
+  };
+  const candidatesFromStructuralContext = (
+    rawText,
+    candidateSourceUrl,
+    sourceRank,
+    structureType,
+    fallbackCategory = ""
+  ) => {
+    const text = normalize(rawText);
+    if (!text) return [];
+    const inferredFallback =
+      fallbackCategory || (tuitionContextPattern.test(text) ? "tuition" : "");
+    const published = classifyMoneyAmounts(
+      text,
+      candidateSourceUrl,
+      inferredFallback,
+      sourceRank,
+      {
+        feeStatus: selectedFeeStatus,
+        structureType
+      }
+    );
+    return published.length > 0
+      ? published
+      : unavailableCandidateFrom(
+          text,
+          candidateSourceUrl,
+          sourceRank,
+          structureType
+        );
+  };
+  const collectTableMoneyCandidates = (scope, candidateSourceUrl) => {
+    const candidates = [];
+    for (const table of safeQueryAll(scope, "table")) {
+      const rows = safeQueryAll(table, "tr");
+      if (rows.length === 0) continue;
+      const headerRow = rows.find(
+        (row) => safeQueryAll(row, "th").length >= 2
+      );
+      const headerCells = headerRow
+        ? safeQueryAll(headerRow, "th,td").map(textOf)
+        : [];
+      const tableHeading = closestHeadingText(table);
+      const caption = textOf(table.querySelector?.("caption"));
+      for (const row of rows) {
+        const cells = safeQueryAll(row, "th,td");
+        if (cells.length === 0) continue;
+        const rowTexts = cells.map(textOf);
+        for (let index = 0; index < cells.length; index += 1) {
+          const cellText = rowTexts[index];
+          if (
+            !amountPattern.test(cellText) &&
+            !unpublishedFeePattern.test(cellText)
+          ) {
+            continue;
+          }
+          const rowHeader =
+            rowTexts.find(
+              (text, cellIndex) =>
+                cellIndex !== index &&
+                !amountPattern.test(text) &&
+                text.length <= 180
+            ) || "";
+          const columnHeader = headerRow !== row ? headerCells[index] || "" : "";
+          const context = [
+            tableHeading,
+            caption,
+            columnHeader,
+            rowHeader,
+            cellText
+          ]
+            .map(normalize)
+            .filter(Boolean)
+            .filter((text, textIndex, all) => all.indexOf(text) === textIndex)
+            .join(" | ");
+          candidates.push(
+            ...candidatesFromStructuralContext(
+              context,
+              candidateSourceUrl,
+              90,
+              "table_grid"
+            )
+          );
+        }
+      }
     }
     return candidates;
   };
+  const collectDefinitionMoneyCandidates = (scope, candidateSourceUrl) => {
+    const candidates = [];
+    const terms = safeQueryAll(scope, "dt");
+    for (const term of terms) {
+      let detail = term.nextElementSibling;
+      if (detail?.tagName !== "DD") {
+        const siblings = Array.from(term.parentElement?.children ?? []);
+        detail = siblings[siblings.indexOf(term) + 1] || null;
+      }
+      if (detail?.tagName !== "DD") continue;
+      const detailText = textOf(detail);
+      if (
+        !amountPattern.test(detailText) &&
+        !unpublishedFeePattern.test(detailText)
+      ) {
+        continue;
+      }
+      const context = [
+        closestHeadingText(term),
+        textOf(term),
+        detailText
+      ]
+        .map(normalize)
+        .filter(Boolean)
+        .join(" | ");
+      candidates.push(
+        ...candidatesFromStructuralContext(
+          context,
+          candidateSourceUrl,
+          85,
+          "key_value_definition"
+        )
+      );
+    }
+    return candidates;
+  };
+  const collectCardMoneyCandidates = (scope, candidateSourceUrl) => {
+    const selector = [
+      "details",
+      "[role='tabpanel']",
+      "[role='group']",
+      "[class*='fee']",
+      "[class*='cost']",
+      "[class*='tuition']",
+      "[class*='card']"
+    ].join(",");
+    const containers = safeQueryAll(scope, selector).filter((node) => {
+      const text = textOf(node);
+      const identity = elementIdentity(node);
+      const containsRelationalStructure =
+        safeQueryAll(node, "table,dl").length > 0 &&
+        !/\b(?:card|fee|cost|tuition)\b/i.test(identity);
+      return (
+        !containsRelationalStructure &&
+        text.length >= 10 &&
+        text.length <= 2600 &&
+        tuitionContextPattern.test(`${identity} ${text}`) &&
+        (amountPattern.test(text) || unpublishedFeePattern.test(text))
+      );
+    });
+    const smallestContainers = containers.filter(
+      (container) =>
+        !containers.some(
+          (other) =>
+            other !== container &&
+            container.contains?.(other) &&
+            textOf(other).length < textOf(container).length
+        )
+    );
+    return smallestContainers.flatMap((container) => {
+      const cardHeadings = safeQueryAll(
+        container,
+        "h1,h2,h3,h4,h5,h6"
+      ).map(textOf);
+      const amountBlocks = safeQueryAll(container, "p,li,dd,div").filter(
+        (node) => {
+          const text = textOf(node);
+          if (!amountPattern.test(text) && !unpublishedFeePattern.test(text)) {
+            return false;
+          }
+          return !safeQueryAll(node, "p,li,dd,div").some((child) => {
+            const childText = textOf(child);
+            return (
+              amountPattern.test(childText) ||
+              unpublishedFeePattern.test(childText)
+            );
+          });
+        }
+      );
+      const valueBlocks = amountBlocks.length > 0 ? amountBlocks : [container];
+      return valueBlocks.flatMap((valueBlock) => {
+        const context = [
+          closestHeadingText(container),
+          ...cardHeadings,
+          elementIdentity(container),
+          textOf(valueBlock)
+        ]
+          .map(normalize)
+          .filter(Boolean)
+          .filter((text, index, all) => all.indexOf(text) === index)
+          .join(" | ");
+        return candidatesFromStructuralContext(
+          context,
+          candidateSourceUrl,
+          75,
+          "card_container"
+        );
+      });
+    });
+  };
+  const collectHeadingMoneyCandidates = (scope, candidateSourceUrl) => {
+    const candidates = [];
+    const headings = safeQueryAll(scope, "h1,h2,h3,h4,h5,h6").filter(
+      (heading) =>
+        /\b(?:tuition|course|programme|program|international|overseas|home)?\s*fees?\b|\bcourse\s+costs?\b/i.test(
+          textOf(heading)
+        ) && !excludedFeeControlPattern.test(textOf(heading))
+    );
+    for (const heading of headings) {
+      const blocks = [];
+      let node = heading.nextElementSibling;
+      const level = headingLevel(heading);
+      while (node && blocks.join(" ").length < 2200) {
+        const nextLevel = headingLevel(node);
+        if (nextLevel !== null && nextLevel <= level) break;
+        const identity = elementIdentity(node);
+        if (
+          /^(?:TABLE|DL)$/.test(node.tagName) ||
+          /\b(?:card|fee-card|cost-card|tuition-card)\b/i.test(identity) ||
+          node.getAttribute?.("role") === "tabpanel"
+        ) {
+          node = node.nextElementSibling;
+          continue;
+        }
+        const text = textOf(node);
+        if (text) blocks.push(text);
+        node = node.nextElementSibling;
+      }
+      const context = [textOf(heading), ...blocks].join(" | ");
+      if (
+        !amountPattern.test(context) &&
+        !unpublishedFeePattern.test(context)
+      ) {
+        continue;
+      }
+      candidates.push(
+        ...candidatesFromStructuralContext(
+          context,
+          candidateSourceUrl,
+          70,
+          "heading_sibling_text",
+          "tuition"
+        )
+      );
+    }
+    return candidates;
+  };
+  const collectStructuralMoneyCandidates = (scope, candidateSourceUrl) => [
+    ...collectTableMoneyCandidates(scope, candidateSourceUrl),
+    ...collectDefinitionMoneyCandidates(scope, candidateSourceUrl),
+    ...collectCardMoneyCandidates(scope, candidateSourceUrl),
+    ...collectHeadingMoneyCandidates(scope, candidateSourceUrl)
+  ];
 
   const tuitionLinkPattern =
-    /\b(?:tuition|course|programme)\s+fees?\b|\bfees?\s+by\b/i;
+    /\b(?:tuition|course|programme)\s+fees?\b|\bfees?\s+(?:and\s+funding|by)\b|^fees?$/i;
   const tuitionFeeLinks = Array.from(root?.querySelectorAll("a[href]") ?? [])
     .map((link) => {
       try {
@@ -1155,7 +1649,8 @@ export async function readGenericPage(options = {}) {
                   900
                 ),
                 sourceUrl: link.url,
-                publicationStatus: value ? "published" : "unpublished"
+                publicationStatus: value ? "published" : "unpublished",
+                structureType: "table_grid"
               }
             ];
           }
@@ -1202,7 +1697,8 @@ export async function readGenericPage(options = {}) {
                 900
               ),
               sourceUrl: link.url,
-              publicationStatus: "published"
+              publicationStatus: "published",
+              structureType: "table_grid"
             }
           ];
         }
@@ -1212,15 +1708,24 @@ export async function readGenericPage(options = {}) {
         return [];
       }
 
+      const linkedStructuralCandidates = collectStructuralMoneyCandidates(
+        linkedRoot,
+        link.url
+      );
       const linkedBlocks = Array.from(
         linkedRoot?.querySelectorAll("p,li,dd,tr") ?? []
       )
         .map(textOf)
         .filter((text) => amountFromCell(text));
-      return linkedBlocks
-        .flatMap((rawText) =>
-          classifyMoneyAmounts(rawText, link.url, "tuition", 15)
+      return [
+        ...linkedStructuralCandidates,
+        ...linkedBlocks.flatMap((rawText) =>
+          classifyMoneyAmounts(rawText, link.url, "tuition", 25, {
+            structureType: "heading_sibling_text"
+          })
         )
+      ]
+        .sort((left, right) => right.sourceRank - left.sourceRank)
         .filter((candidate) => candidate.category === "tuition")
         .filter(
           (candidate) =>
@@ -1238,7 +1743,20 @@ export async function readGenericPage(options = {}) {
           ...candidate,
           studyMode: candidate.studyMode ||
             (/\bfull[- ]?time\b/i.test(link.label) ? "full-time" : "")
-        }));
+        }))
+        .filter(
+          (candidate, index, all) =>
+            all.findIndex(
+              (item) =>
+                item.value === candidate.value &&
+                item.academicCycle === candidate.academicCycle &&
+                item.intakeMonth === candidate.intakeMonth &&
+                item.intakeYear === candidate.intakeYear &&
+                item.feeStatus === candidate.feeStatus &&
+                item.studyMode === candidate.studyMode
+            ) === index
+        )
+        .map(({ category, sourceRank, ...candidate }) => candidate);
     } catch {
       return [];
     } finally {
@@ -1246,26 +1764,34 @@ export async function readGenericPage(options = {}) {
     }
   };
 
-  const feeSection = collectSection(/^Fees?(?:\s+and\s+funding)?$/i);
-  const directMoneyCandidates = [
-    ...contentBlocks.flatMap((rawText) =>
-      classifyMoneyAmounts(rawText, sourceUrl, "", 20)
-    ),
-    ...(feeSection
-      ? classifyMoneyAmounts(feeSection, sourceUrl, "tuition", 10)
-      : [])
-  ];
-  const moneyCandidates = directMoneyCandidates.filter(
-    (candidate, index, all) =>
-      all.findIndex(
-        (item) =>
-          item.category === candidate.category &&
-          item.value === candidate.value &&
-          item.academicCycle === candidate.academicCycle &&
-          item.feeStatus === candidate.feeStatus &&
-          item.sourceUrl === candidate.sourceUrl
-      ) === index
+  const structuralMoneyCandidates = collectStructuralMoneyCandidates(
+    root,
+    sourceUrl
   );
+  const directMoneyCandidates = [
+    ...structuralMoneyCandidates,
+    ...contentBlocks.flatMap((rawText) =>
+      classifyMoneyAmounts(rawText, sourceUrl, "", 25, {
+        structureType: "heading_sibling_text"
+      })
+    )
+  ];
+  const moneyCandidates = directMoneyCandidates
+    .sort((left, right) => right.sourceRank - left.sourceRank)
+    .filter(
+      (candidate, index, all) =>
+        all.findIndex(
+          (item) =>
+            item.category === candidate.category &&
+            item.value === candidate.value &&
+            item.academicCycle === candidate.academicCycle &&
+            item.intakeMonth === candidate.intakeMonth &&
+            item.intakeYear === candidate.intakeYear &&
+            item.feeStatus === candidate.feeStatus &&
+            item.studyMode === candidate.studyMode &&
+            item.sourceUrl === candidate.sourceUrl
+        ) === index
+    );
   const directTuitionFeeCandidates = moneyCandidates
     .filter((candidate) => candidate.category === "tuition")
     .sort((left, right) => {
@@ -1300,7 +1826,11 @@ export async function readGenericPage(options = {}) {
       all.findIndex(
         (item) =>
           item.value === candidate.value &&
-          item.rawText === candidate.rawText &&
+          item.academicCycle === candidate.academicCycle &&
+          item.intakeMonth === candidate.intakeMonth &&
+          item.intakeYear === candidate.intakeYear &&
+          item.feeStatus === candidate.feeStatus &&
+          item.studyMode === candidate.studyMode &&
           item.sourceUrl === candidate.sourceUrl
       ) === index
   );
@@ -1614,6 +2144,16 @@ export async function readGenericPage(options = {}) {
       /^(?:CV|curriculum vitae|résumé|resume)$/i,
       /\b(?:CV|curriculum vitae|résumé|resume)\b/i
     ) || (await readLinkedCvDocument());
+  const tuitionFamilyLabels = {
+    table_grid: "Table/Grid",
+    key_value_definition: "Key-value/Definition",
+    card_container: "Card/Container",
+    heading_sibling_text: "Heading/Sibling/Text"
+  };
+  const tuitionExtractorFamilies = tuitionFeeCandidates
+    .map((candidate) => tuitionFamilyLabels[candidate.structureType])
+    .filter(Boolean)
+    .filter((family, index, all) => all.indexOf(family) === index);
 
   return {
     schemaVersion: 3,
@@ -1641,6 +2181,19 @@ export async function readGenericPage(options = {}) {
     supportingDocumentLinks,
     tuitionFeeLinks,
     pageAcademicCycles,
+    tuitionExtraction: {
+      version: 2,
+      families: tuitionExtractorFamilies,
+      pageAdapters: {
+        linkedFeePage: tuitionFeeLinks.length > 0,
+        revealOrLateRender: tuitionPagePreparation.revealedFeeControls > 0,
+        audienceSelection: tuitionPagePreparation.selectedFeeAudience,
+        unavailableState: tuitionFeeCandidates.some(
+          (candidate) => candidate.publicationStatus === "unpublished"
+        ),
+        multipleAcademicYears: pageAcademicCycles.length > 1
+      }
+    },
     moneyCandidates: moneyCandidates.map(({ sourceRank, ...candidate }) =>
       candidate
     ),
