@@ -33,9 +33,9 @@ test("항목별 수동 확인 선택지를 지정된 순서로 제공한다", ()
   assert.deepEqual(getCommonMemoSummaryOptions("englishRequirements"), ["별도 페이지", "지원서 내부 확인", "못 찾음"]);
   assert.deepEqual(getCommonMemoSummaryOptions("reference"), ["별도 페이지", "지원서 내부 확인", "못 찾음"]);
   assert.deepEqual(getCommonMemoSummaryOptions("sopGuideline"), ["별도 페이지", "지원서 내부 확인", "못 찾음"]);
-  assert.deepEqual(getCommonMemoSummaryOptions("cv"), ["별도 페이지", "지원서 내부 확인", "못 찾음"]);
-  assert.deepEqual(getCommonMemoSummaryOptions("applicationFee"), ["No application fee", "못 찾음"]);
-  assert.deepEqual(getCommonMemoSummaryOptions("universityApplicationDeadline"), ["Rolling basis", "Staged admission"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("cv"), ["선택 사항", "별도 페이지", "지원서 내부 확인", "못 찾음"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("applicationFee"), ["공통", "No application fee", "못 찾음"]);
+  assert.deepEqual(getCommonMemoSummaryOptions("universityApplicationDeadline"), ["공통", "Rolling basis", "Staged admission"]);
   assert.deepEqual(getCommonMemoSummaryOptions("tuitionFee"), []);
   assert.ok(Object.isFrozen(COMMON_MEMO_SUMMARY_OPTIONS));
 });
@@ -53,6 +53,31 @@ test("확인일은 명시된 날짜로만 현재 학년도에 기록된다", () 
   assert.equal(verified.verificationByCycle["2026/27"].confirmedDate, "2026-08-05");
   assert.equal(getMemoVerificationStatus(verified, "2026/27"), MEMO_VERIFICATION_STATUS.CONFIRMED);
   assert.equal(getMemoVerificationStatus(verified, "2027/28"), MEMO_VERIFICATION_STATUS.NEEDS_REVIEW);
+});
+
+test("대학명 정규화 결과가 비는 UCL도 CV 선택 사항과 확인일을 저장한다", () => {
+  const record = createCommonMemoRecord({
+    siteKey: "ucl",
+    universityName: "University College London",
+    fieldKey: "cv",
+    summary: "선택 사항",
+    details: "",
+    sourceUrl: "https://www.ucl.ac.uk/prospective-students/graduate/",
+    sourceLabel: ""
+  }, NOW);
+  const verified = verifyCommonMemoForCycle(
+    record,
+    "2026/27",
+    "2026-08-21",
+    NOW
+  );
+
+  assert.equal(record.universityKey, "ucl");
+  assert.equal(verified.summary, "선택 사항");
+  assert.equal(
+    verified.verificationByCycle["2026/27"].confirmedDate,
+    "2026-08-21"
+  );
 });
 
 test("확인 뒤 요약이 바뀌면 확인일을 갱신하지 않고 다시 확인으로 표시한다", () => {

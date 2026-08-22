@@ -159,12 +159,14 @@ export function isValidCommonMemoRecord(record) {
 
 export function createCommonMemoRecord(input, now = new Date()) {
   const universityName = normalizeSingleLine(input?.universityName);
+  const siteKey = normalizeSingleLine(input?.siteKey, 100).toLowerCase();
   const record = {
     id: "",
-    siteKey: normalizeSingleLine(input?.siteKey, 100).toLowerCase(),
+    siteKey,
     universityKey:
       normalizeSingleLine(input?.universityKey, 200) ||
-      normalizeUniversityKey(universityName),
+      normalizeUniversityKey(universityName) ||
+      siteKey,
     universityName,
     fieldKey: normalizeSingleLine(input?.fieldKey, 100),
     summary: normalizeSingleLine(input?.summary ?? input?.value, 500),

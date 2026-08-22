@@ -57,6 +57,31 @@ test("확인일은 선택값이 달라진 경우에만 학년도 확인 기록�
   assert.match(script, /verifyCommonMemoForCycle\(record, currentBasis\.academicCycle, confirmedDate\)/);
 });
 
+test("수동 확인 사항 삭제는 브라우저 확인창 없이 두 번의 명시적 클릭으로 처리한다", async () => {
+  const script = await readFile(jsUrl, "utf8");
+  const deleteFlow = script.match(/async function deleteEditingMemo\(\)[\s\S]*?\n}/)?.[0] ?? "";
+
+  assert.doesNotMatch(deleteFlow, /window\.confirm/);
+  assert.match(deleteFlow, /if \(!deleteMemoArmed\)/);
+  assert.match(deleteFlow, /textContent = "삭제 확인"/);
+  assert.match(deleteFlow, /deleteCommonMemoRecord\(currentMemoState\.store, existing\.id\)/);
+  assert.match(deleteFlow, /saveCommonMemoStore\(nextStore\)/);
+});
+
+test("메모를 별도 JSON으로 내보내고 현재 기록과 병합해 가져온다", async () => {
+  const [html, script] = await Promise.all([
+    readFile(htmlUrl, "utf8"),
+    readFile(jsUrl, "utf8")
+  ]);
+
+  assert.match(html, /id="export-memos-button"/);
+  assert.match(html, /id="import-memos-button"/);
+  assert.match(html, /id="import-memos-input"[^>]+type="file"/);
+  assert.match(script, /serializeCommonMemoBackup\(currentMemoState\.store, now\)/);
+  assert.match(script, /mergeCommonMemoStores\(currentMemoState\.store, imported\)/);
+  assert.match(script, /saveCommonMemoStore\(merged\.store\)/);
+});
+
 test("색상과 모서리는 최상단 토큰으로 관리한다", async () => {
   const css = await readFile(cssUrl, "utf8");
   const root = css.match(/:root\s*\{([\s\S]*?)\n\}/)?.[0] ?? "";

@@ -383,3 +383,23 @@ DOM 전수 조사 결과, 계획 당시 예상했던 6~8개보다 적은 다음 
 현재 구현 검증에는 York, Bristol, Loughborough, Exeter, Southampton, Birmingham, Manchester, St Andrews 구조와 별도 공식 fee 페이지 표본이 포함된다. 실제 DOM 관계를 보존한 fixture에서 구조 계열, 금액, 학년도, fee status, 수학 형태, 미게시 상태, 보증금·장학금 제외를 함께 검증한다.
 
 남은 다음 단계는 설치된 Chrome 확장을 다시 로드한 뒤 대표 실제 페이지에서 검증하는 것이다. 특히 사이트에서 사용하는 custom select, modal, off-canvas처럼 표준 button·tab·select만으로 열리지 않는 제어는 실제 실패 URL이 확인될 때 재사용 가능한 adapter로 추가한다. 수동 원문 선택과 확인 이력 강화는 별도 UI 단계로 남아 있으며, 이번 구조 extractor 변경에는 포함하지 않았다.
+
+## 14. V2.5 실사용 테스트 반영
+
+- 반영일: 2026-08-21
+- 실사용 결과가 입력된 표본: 17개교, 28개 과정
+- Tuition Fee 결과: 정상 6건, 복수 audience 5건, 누락 4건, 할인액 오인 3건, Home fee 오인 2건, 국가 선택 필요 2건, 그 밖의 수학 형태·연결 페이지·토글·팝업 사례
+
+실제 페이지 재현 결과, 학교별 예외가 아니라 다음 공통 실패 패턴이 확인됐다.
+
+1. **앞·뒤 audience 라벨 방향**: Manchester처럼 `UK ... £금액 International ... £금액` 순서인 문장에서 다음 International 라벨이 앞 금액을 가로채고 있었다. 한 블록의 첫 금액과 첫 audience 라벨 순서로 라벨 배치 방향을 판정하고, 같은 방향의 가장 가까운 라벨을 연결한다.
+2. **금액만 있는 자식 노드**: Sheffield의 `.feebox`처럼 금액과 `Home/Overseas` 설명이 형제 노드로 나뉜 경우, 금액만 있는 작은 노드에는 부모 카드 문맥을 보충한다. 이미 설명이 있는 문단에는 부모 전체 문맥을 덧붙이지 않아 deposit·scholarship 오염을 막는다.
+3. **class에만 있는 수학 형태**: UCL의 `study-mode fulltime/parttime`처럼 화면 텍스트가 아니라 class가 관계를 나타내는 금액 블록을 Card/Container 계열에 포함한다. 더 구체적인 수학 형태 후보가 같은 금액의 모호한 후보를 지배하도록 정리한다.
+4. **할인·절감액 오인**: `save up to`, saving, fee waiver·reduction을 scholarship/discount 계열로 분류한다. `Fees and funding`의 일반 funding 단어는 장학금 증거로 쓰지 않는다.
+5. **국가 선택형 국제 학비**: Birmingham처럼 `International` 옵션이 없고 국가 목록에서 선택해야 하는 경우, fee 관련 id·class·container 안의 select에 한해 South Korea를 선택하고 갱신을 기다린다.
+6. **공식 연결 페이지**: 연결 학비 페이지 읽기를 공통 linked-document cache와 8초 제한으로 통합한다. 직접 후보가 있어도 현재 학년도·fee status·수학 형태에 맞는 후보가 없으면 공식 연결 페이지를 사용한다.
+7. **지원 마감일 상태**: staged table은 `Application received by`의 첫 stage를 작업용 마감일로 사용한다. `All applicants` 기간은 종료일을, `There is no application closing date`는 명시 상태를 보존한다.
+
+실제 렌더링 DOM에 수정본을 다시 적용해 Sheffield `£26,320`, Manchester Mechanical Engineering Design `£38,400`, UCL Child Development full-time `£35,400` 후보가 현재 기준으로 선택되는 것을 확인했다. Birmingham은 fee 국가 선택을 South Korea로 바꾸면 `£35,460`으로 갱신되는 것을 확인하고 같은 계약을 fixture로 추가했다.
+
+이번 반영으로 해결 여부를 확정하지 않은 항목도 남아 있다. Cranfield popup, Glasgow의 토글 후 지연 콘텐츠, Imperial·Cambridge의 별도 경로, Manchester의 일부 학과 템플릿은 설치된 확장에서 다시 재현해야 한다. Entry Requirements의 과다·누락과 Reference·SOP·CV 본문 누락도 서로 다른 경계 문제이므로 Tuition Fee 보정과 섞지 않고 다음 field-specific 회귀 단계에서 다룬다.

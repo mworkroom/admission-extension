@@ -19,6 +19,11 @@ import {
   upsertCommonMemoRecord
 } from "../shared/common-memo-storage.js";
 import {
+  mergeCommonMemoStores,
+  parseCommonMemoBackup,
+  serializeCommonMemoBackup
+} from "../shared/common-memo-backup.js";
+import {
   ISSUE_STATUS,
   createIssueNoteRecord,
   deleteIssueNoteRecord,
@@ -112,6 +117,10 @@ const elements = {
   openIssueManagerButton: document.querySelector("#open-issue-manager-button"),
   openIssueCount: document.querySelector("#open-issue-count"),
   exportIssuesButton: document.querySelector("#export-issues-button"),
+  exportMemosButton: document.querySelector("#export-memos-button"),
+  importMemosButton: document.querySelector("#import-memos-button"),
+  importMemosInput: document.querySelector("#import-memos-input"),
+  memoBackupCount: document.querySelector("#memo-backup-count"),
   hideKnownWidgetsInput: document.querySelector("#hide-known-widgets-input"),
   toolsStatus: document.querySelector("#tools-status"),
   basisDialog: document.querySelector("#basis-dialog"),
@@ -170,6 +179,7 @@ let isAnalyzing = false;
 let analysisError = "";
 let editingMemoId = "";
 let editingMemoFieldKey = "";
+let deleteMemoArmed = false;
 let editingIssueNoteId = "";
 let isSavingMemo = false;
 let isSavingIssue = false;
@@ -757,6 +767,8 @@ function showMemoDialog(fieldKey, record = null) {
   elements.memoConfirmedInput.checked = confirmed;
   elements.memoUnverifiedInput.checked = !confirmed;
   elements.memoConfirmedDateInput.value = currentVerification?.confirmedDate ?? latest?.confirmedDate ?? "";
+  deleteMemoArmed = false;
+  elements.deleteMemoButton.textContent = "삭제";
   elements.deleteMemoButton.hidden = !resolvedRecord;
   elements.memoError.textContent = "";
   renderConfirmationFields();
@@ -828,16 +840,23 @@ async function persistMemo(event) {
 
 async function deleteEditingMemo() {
   const existing = currentMemoState?.store.records.find((record) => record.id === editingMemoId);
-  if (!existing || isSavingMemo || !window.confirm("이 확인한 사항을 삭제할까요?")) return;
+  if (!existing || isSavingMemo) return;
+  if (!deleteMemoArmed) {
+    deleteMemoArmed = true;
+    elements.deleteMemoButton.textContent = "삭제 확인";
+    elements.memoError.textContent = "삭제하려면 삭제 확인을 한 번 더 눌러주세요.";
+    return;
+  }
   setMemoSaving(true);
   try {
     const nextStore = deleteCommonMemoRecord(currentMemoState.store, existing.id);
     const stored = await saveCommonMemoStore(nextStore);
     currentMemoState = { ...currentMemoState, store: stored, invalidRecordCount: 0 };
+    deleteMemoArmed = false;
     elements.memoDialog.close();
     renderAnalysis();
-  } catch {
-    elements.memoError.textContent = "확인한 사항을 삭제하지 못했습니다.";
+  } catch (error) {
+    elements.memoError.textContent = error?.message || "확인한 사항을 삭제하지 못했습니다.";
   } finally {
     setMemoSaving(false);
   }
@@ -1010,8 +1029,64 @@ function exportIssues() {
   } catch { elements.toolsStatus.textContent = "문제 기록을 내보내지 못했습니다."; }
 }
 
+function renderMemoBackupState() {
+  const records = currentMemoState?.store?.records ?? [];
+  const available = Boolean(
+    currentMemoState?.persisted &&
+    !currentMemoState.unsupportedSchema &&
+    currentMemoState.invalidRecordCount === 0
+  );
+  elements.memoBackupCount.textContent = `${records.length}`;
+  elements.exportMemosButton.disabled = !available || records.length === 0;
+  elements.importMemosButton.disabled = !available;
+}
+
+function exportMemos() {
+  try {
+    const now = new Date();
+    downloadTextFile(
+      serializeCommonMemoBackup(currentMemoState.store, now),
+      `admission-memos-${localDateString(now)}.json`,
+      "application/json;charset=utf-8"
+    );
+    elements.toolsStatus.textContent = `${currentMemoState.store.records.length}개 메모 백업을 준비했습니다.`;
+  } catch (error) {
+    elements.toolsStatus.textContent = error?.message || "메모 백업을 내보내지 못했습니다.";
+  }
+}
+
+async function importMemos(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  if (file.size > 5_000_000) {
+    elements.toolsStatus.textContent = "5MB 이하의 메모 백업 JSON을 선택해주세요.";
+    return;
+  }
+  elements.importMemosButton.disabled = true;
+  try {
+    const imported = parseCommonMemoBackup(await file.text());
+    const merged = mergeCommonMemoStores(currentMemoState.store, imported);
+    const stored = await saveCommonMemoStore(merged.store);
+    currentMemoState = {
+      ...currentMemoState,
+      store: stored,
+      recovered: false,
+      migrated: false,
+      invalidRecordCount: 0
+    };
+    renderAnalysis();
+    elements.toolsStatus.textContent = `메모 백업을 가져왔습니다. 추가 ${merged.added}개 · 업데이트 ${merged.updated}개 · 기존 유지 ${merged.kept}개`;
+  } catch (error) {
+    elements.toolsStatus.textContent = error?.message || "메모 백업을 가져오지 못했습니다.";
+  } finally {
+    renderMemoBackupState();
+  }
+}
+
 elements.openToolsButton.addEventListener("click", () => {
   renderIssueNotes();
+  renderMemoBackupState();
   elements.toolsDialog.showModal();
   elements.closeToolsButton.focus();
 });
@@ -1024,6 +1099,12 @@ elements.openIssueManagerButton.addEventListener("click", () => {
   elements.issueNoteInput.focus();
 });
 elements.exportIssuesButton.addEventListener("click", exportIssues);
+elements.exportMemosButton.addEventListener("click", exportMemos);
+elements.importMemosButton.addEventListener("click", () => {
+  elements.importMemosInput.value = "";
+  elements.importMemosInput.click();
+});
+elements.importMemosInput.addEventListener("change", importMemos);
 elements.hideKnownWidgetsInput.addEventListener("change", async () => {
   const previous = currentWidgetPreferences;
   currentWidgetPreferences = { ...previous, hideKnownWidgets: elements.hideKnownWidgetsInput.checked };

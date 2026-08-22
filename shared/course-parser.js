@@ -415,6 +415,12 @@ function parseDeadline(field, snapshot, basis) {
       if (candidate.applicantCategory === "visa_not_required") {
         return "No visa required";
       }
+      if (candidate.applicantCategory === "all_applicants") {
+        return "All applicants";
+      }
+      if (candidate.applicantCategory === "staged_first") {
+        return "First stage";
+      }
       return "Candidate";
     };
     const detail = candidates
@@ -436,6 +442,19 @@ function parseDeadline(field, snapshot, basis) {
   if (candidates.length !== 1) {
     const mode = snapshot.applicationDeadlineModes?.[0];
     if (candidates.length === 0 && mode) {
+      if (mode.kind === "no_closing_date") {
+        return makeResult(field, EXTRACTION_STATUS.FOUND, {
+          reasonCode: "no_closing_date",
+          value: mode.value,
+          detail: mode.rawText,
+          source: sourceFor(
+            snapshot,
+            "Application deadline",
+            mode.rawText,
+            mode.sourceUrl
+          )
+        });
+      }
       const isRolling = mode.kind === "rolling";
       return makeResult(field, EXTRACTION_STATUS.ACTION_REQUIRED, {
         reasonCode: isRolling ? "rolling_basis" : "staged_admission",

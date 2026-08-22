@@ -86,6 +86,39 @@ export async function readGenericPage(options = {}) {
         : null;
     })
     .find(Boolean);
+  const countryAudienceOptionPattern = requestedFeeStatus === "home"
+    ? /^(?:United Kingdom|UK)$/i
+    : /^(?:South Korea|Republic of Korea|Korea\s*\(\s*South\s*\)|Korea,\s*South)$/i;
+  const countryAudienceSelect = !audienceSelect
+    ? Array.from(root?.querySelectorAll("select") ?? [])
+        .map((select) => {
+          const option = Array.from(select.querySelectorAll("option") ?? []).find(
+            (candidate) => countryAudienceOptionPattern.test(textOf(candidate))
+          );
+          if (!option) return null;
+          const identity = normalize(
+            `${select.getAttribute?.("aria-label") || ""} ${
+              select.getAttribute?.("name") || ""
+            } ${select.id || ""} ${select.className || ""}`
+          );
+          const container = select.closest?.(
+            "section,article,[class*='fee'],[class*='cost'],[class*='tuition']"
+          );
+          const containerIdentity = normalize(
+            `${container?.id || ""} ${
+              typeof container?.className === "string"
+                ? container.className
+                : ""
+            }`
+          );
+          const score =
+            (/fee|cost|tuition/i.test(identity) ? 20 : 0) +
+            (/fee|cost|tuition/i.test(containerIdentity) ? 10 : 0);
+          return score > 0 ? { select, option, score } : null;
+        })
+        .filter(Boolean)
+        .sort((left, right) => right.score - left.score)[0] || null
+    : null;
   if (
     audienceControl &&
     audienceControl.getAttribute?.("aria-selected") !== "true" &&
@@ -102,10 +135,27 @@ export async function readGenericPage(options = {}) {
     tuitionPagePreparation.selectedFeeAudience = true;
   }
   if (
+    countryAudienceSelect &&
+    countryAudienceSelect.select.value !== countryAudienceSelect.option.value
+  ) {
+    countryAudienceSelect.select.value = countryAudienceSelect.option.value;
+    if (typeof countryAudienceSelect.select.dispatchEvent === "function") {
+      countryAudienceSelect.select.dispatchEvent(
+        new Event("input", { bubbles: true })
+      );
+      countryAudienceSelect.select.dispatchEvent(
+        new Event("change", { bubbles: true })
+      );
+    }
+    tuitionPagePreparation.selectedFeeAudience = true;
+  }
+  if (
     tuitionPagePreparation.revealedFeeControls > 0 ||
     tuitionPagePreparation.selectedFeeAudience
   ) {
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await new Promise((resolve) =>
+      setTimeout(resolve, countryAudienceSelect ? 800 : 250)
+    );
   }
   if (options.expandEnglishAccordion) {
     const englishButton = Array.from(root?.querySelectorAll("button") ?? []).find(
@@ -700,7 +750,7 @@ export async function readGenericPage(options = {}) {
     },
     {
       category: "scholarship",
-      pattern: /\b(?:scholarships?|bursar(?:y|ies)|awards?|grants?|discounts?|funding|student\s+support)\b/gi,
+      pattern: /\b(?:scholarships?|bursar(?:y|ies)|awards?|grants?|discounts?|funding|student\s+support|save(?:\s+up\s+to)?|savings?|fee\s+(?:waivers?|reductions?))\b/gi,
       priority: 3
     },
     {
@@ -736,17 +786,20 @@ export async function readGenericPage(options = {}) {
         }
       }
     }
-    const nearbyExclusions = matches.filter(
+    const contextualMatches = matches.filter(
       (match) =>
-        match.priority > 1 &&
-        match.distance <= 90 &&
         !(
           match.category === "scholarship" &&
           /^funding$/i.test(match.label) &&
           /fees?\s+and\s+$/i.test(
-            text.slice(Math.max(0, match.index - 18), match.index)
+            text.slice(Math.max(0, match.index - 24), match.index)
           )
         )
+    );
+    const nearbyExclusions = contextualMatches.filter(
+      (match) =>
+        match.priority > 1 &&
+        match.distance <= 90
     );
     if (nearbyExclusions.length > 0) {
       return nearbyExclusions.sort(
@@ -754,7 +807,7 @@ export async function readGenericPage(options = {}) {
           right.priority - left.priority || left.distance - right.distance
       )[0].category;
     }
-    return matches.sort(
+    return contextualMatches.sort(
       (left, right) =>
         left.distance - right.distance || right.priority - left.priority
     )[0]?.category || fallbackCategory || "other";
@@ -798,7 +851,74 @@ export async function readGenericPage(options = {}) {
       (status) =>
         status.index > leftBoundary && status.end <= rightBoundary
     );
-    return (sameSegment.length > 0 ? sameSegment : statuses)
+    const localStatuses = sameSegment.length > 0 ? sameSegment : statuses;
+    const firstAmountIndex = text.search(amountPattern);
+    const firstStatusIndex = localStatuses
+      .map((status) => status.index)
+      .sort((left, right) => left - right)[0];
+    const labelsComeFirst =
+      Number.isInteger(firstStatusIndex) &&
+      firstAmountIndex !== -1 &&
+      firstStatusIndex < firstAmountIndex;
+    const directionalStatuses = localStatuses.filter((status) =>
+      labelsComeFirst ? status.end <= start : status.index >= end
+    );
+    return (directionalStatuses.length > 0 ? directionalStatuses : localStatuses)
+      .sort((left, right) => left.distance - right.distance)[0]
+      ?.value || "";
+  };
+  const nearestStudyMode = (text, start, end) => {
+    const modes = [];
+    const studyModePattern = /\b(?:full[- ]?time|part[- ]?time|modular(?:[- ]flexible)?|flexible)\b/gi;
+    for (const match of text.matchAll(studyModePattern)) {
+      const matchEnd = match.index + match[0].length;
+      const distance = matchEnd <= start
+        ? start - matchEnd
+        : match.index >= end
+          ? match.index - end
+          : 0;
+      if (distance > 180) continue;
+      modes.push({
+        value: /part[- ]?time/i.test(match[0])
+          ? "part-time"
+          : /full[- ]?time/i.test(match[0])
+            ? "full-time"
+            : "flexible",
+        distance,
+        index: match.index,
+        end: matchEnd
+      });
+    }
+    if (modes.length === 0) return "";
+    const leftBoundary = Math.max(
+      text.lastIndexOf("|", start - 1),
+      text.lastIndexOf(";", start - 1),
+      text.lastIndexOf(". ", start - 1)
+    );
+    const possibleRightBoundaries = [
+      text.indexOf("|", end),
+      text.indexOf(";", end),
+      text.indexOf(". ", end)
+    ].filter((index) => index !== -1);
+    const rightBoundary = possibleRightBoundaries.length > 0
+      ? Math.min(...possibleRightBoundaries)
+      : text.length;
+    const sameSegment = modes.filter(
+      (mode) => mode.index > leftBoundary && mode.end <= rightBoundary
+    );
+    const localModes = sameSegment.length > 0 ? sameSegment : modes;
+    const firstAmountIndex = text.search(amountPattern);
+    const firstModeIndex = localModes
+      .map((mode) => mode.index)
+      .sort((left, right) => left - right)[0];
+    const labelsComeFirst =
+      Number.isInteger(firstModeIndex) &&
+      firstAmountIndex !== -1 &&
+      firstModeIndex < firstAmountIndex;
+    const directionalModes = localModes.filter((mode) =>
+      labelsComeFirst ? mode.end <= start : mode.index >= end
+    );
+    return (directionalModes.length > 0 ? directionalModes : localModes)
       .sort((left, right) => left.distance - right.distance)[0]
       ?.value || "";
   };
@@ -848,11 +968,7 @@ export async function readGenericPage(options = {}) {
         intakeYear: Number(metadata.intakeYear) || intake.intakeYear,
         studyMode:
           normalize(metadata.studyMode) ||
-          (/\bpart[- ]?time\b/i.test(text)
-            ? "part-time"
-            : /\bfull[- ]?time\b/i.test(text)
-              ? "full-time"
-              : ""),
+          nearestStudyMode(text, start, end),
         feeStatus,
         rawText: limit(text, 900),
         sourceUrl: candidateSourceUrl,
@@ -1076,19 +1192,21 @@ export async function readGenericPage(options = {}) {
       "[class*='fee']",
       "[class*='cost']",
       "[class*='tuition']",
-      "[class*='card']"
+      "[class*='card']",
+      "[class*='study-mode']"
     ].join(",");
     const containers = safeQueryAll(scope, selector).filter((node) => {
       const text = textOf(node);
       const identity = elementIdentity(node);
+      const headingText = closestHeadingText(node);
       const containsRelationalStructure =
         safeQueryAll(node, "table,dl").length > 0 &&
         !/\b(?:card|fee|cost|tuition)\b/i.test(identity);
       return (
         !containsRelationalStructure &&
-        text.length >= 10 &&
+        text.length >= 4 &&
         text.length <= 2600 &&
-        tuitionContextPattern.test(`${identity} ${text}`) &&
+        tuitionContextPattern.test(`${headingText} ${identity} ${text}`) &&
         (amountPattern.test(text) || unpublishedFeePattern.test(text))
       );
     });
@@ -1123,11 +1241,16 @@ export async function readGenericPage(options = {}) {
       );
       const valueBlocks = amountBlocks.length > 0 ? amountBlocks : [container];
       return valueBlocks.flatMap((valueBlock) => {
+        const valueText = textOf(valueBlock);
+        const semanticValueText = normalize(
+          valueText.replace(new RegExp(amountPattern.source, "gi"), " ")
+        );
         const context = [
           closestHeadingText(container),
           ...cardHeadings,
           elementIdentity(container),
-          textOf(valueBlock)
+          semanticValueText.length <= 12 ? textOf(container) : "",
+          valueText
         ]
           .map(normalize)
           .filter(Boolean)
@@ -1287,7 +1410,7 @@ export async function readGenericPage(options = {}) {
   const applicationDeadlineLink =
     configuredLink(options.applicationDeadlineUrl, "Application deadline") ||
     findRelatedLink(
-      /application\s+(?:deadline|dates?|process)|how\s+to\s+apply|next\s+steps/i
+      /application\s+(?:deadline|dates?|process)|staged\s+admissions?\s+deadlines?|how\s+to\s+apply|next\s+steps/i
     );
   const configuredCvLink = configuredLink(
     options.cvGuidelineUrl,
@@ -1322,7 +1445,7 @@ export async function readGenericPage(options = {}) {
           new Promise((_, reject) => {
             timeoutId = setTimeout(
               () => reject(new Error("linked_page_timeout")),
-              5000
+              8000
             );
           })
         ]);
@@ -1542,21 +1665,10 @@ export async function readGenericPage(options = {}) {
     text.match(amountPattern)?.[0] || "";
 
   const readLinkedTuitionCandidates = async (link) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
     try {
-      const response = await fetch(link.url, {
-        credentials: "same-origin",
-        signal: controller.signal
-      });
-      if (!response.ok) {
-        return [];
-      }
-      const html = await response.text();
-      const linkedDocument = new DOMParser().parseFromString(html, "text/html");
-      const linkedRoot =
-        linkedDocument.querySelector("main, [role='main']") ||
-        linkedDocument.body;
+      const linkedDocument = await readLinkedDocument(link);
+      const linkedRoot = linkedDocument?.root;
+      if (!linkedRoot) return [];
       const tables = Array.from(linkedRoot?.querySelectorAll("table") ?? []);
       const feeStatusPattern =
         normalize(options.basis?.feeStatus).toLowerCase() === "home"
@@ -1759,8 +1871,6 @@ export async function readGenericPage(options = {}) {
         .map(({ category, sourceRank, ...candidate }) => candidate);
     } catch {
       return [];
-    } finally {
-      clearTimeout(timeoutId);
     }
   };
 
@@ -1813,12 +1923,26 @@ export async function readGenericPage(options = {}) {
       return score(right) - score(left);
     })
     .map(({ category, sourceRank, ...candidate }) => candidate);
-  const linkedTuitionFeeCandidates = directTuitionFeeCandidates.length === 0
+  const requestedTuitionBasis = options.basis || {};
+  const hasDirectRequestedTuition = directTuitionFeeCandidates.some(
+    (candidate) =>
+      (!candidate.academicCycle ||
+        candidate.academicCycle === normalize(requestedTuitionBasis.academicCycle)) &&
+      (!candidate.intakeMonth ||
+        candidate.intakeMonth === Number(requestedTuitionBasis.intakeMonth)) &&
+      (!candidate.intakeYear ||
+        candidate.intakeYear === Number(requestedTuitionBasis.intakeYear)) &&
+      (!candidate.studyMode ||
+        candidate.studyMode === normalize(requestedTuitionBasis.studyMode)) &&
+      candidate.feeStatus ===
+        (normalize(requestedTuitionBasis.feeStatus) || "international")
+  );
+  const linkedTuitionFeeCandidates = !hasDirectRequestedTuition
     ? (
         await Promise.all(tuitionFeeLinks.map(readLinkedTuitionCandidates))
       ).flat()
     : [];
-  const tuitionFeeCandidates = [
+  const uniqueTuitionFeeCandidates = [
     ...directTuitionFeeCandidates,
     ...linkedTuitionFeeCandidates
   ].filter(
@@ -1833,6 +1957,39 @@ export async function readGenericPage(options = {}) {
           item.studyMode === candidate.studyMode &&
           item.sourceUrl === candidate.sourceUrl
       ) === index
+  );
+  const tuitionSpecificity = (candidate) =>
+    [
+      candidate.academicCycle,
+      candidate.intakeMonth,
+      candidate.intakeYear,
+      candidate.feeStatus,
+      candidate.studyMode
+    ].filter(Boolean).length;
+  const tuitionFeeCandidates = uniqueTuitionFeeCandidates.filter(
+    (candidate) =>
+      !uniqueTuitionFeeCandidates.some(
+        (other) =>
+          other !== candidate &&
+          other.value === candidate.value &&
+          other.sourceUrl === candidate.sourceUrl &&
+          (!candidate.academicCycle ||
+            !other.academicCycle ||
+            candidate.academicCycle === other.academicCycle) &&
+          (!candidate.intakeMonth ||
+            !other.intakeMonth ||
+            candidate.intakeMonth === other.intakeMonth) &&
+          (!candidate.intakeYear ||
+            !other.intakeYear ||
+            candidate.intakeYear === other.intakeYear) &&
+          (!candidate.feeStatus ||
+            !other.feeStatus ||
+            candidate.feeStatus === other.feeStatus) &&
+          (!candidate.studyMode ||
+            !other.studyMode ||
+            candidate.studyMode === other.studyMode) &&
+          tuitionSpecificity(other) > tuitionSpecificity(candidate)
+      )
   );
 
   const directApplicationFeeCandidates = moneyCandidates
@@ -1887,6 +2044,13 @@ export async function readGenericPage(options = {}) {
     "i"
   );
   const basis = options.basis || {};
+  const stagedAdmissionsPattern =
+    /\b(?:staged\s+admissions?(?:\s+process)?|staged\s+entry|selection\s+deadlines?)\b/i;
+  const hasStagedAdmissions =
+    contentBlocks.some((text) => stagedAdmissionsPattern.test(text)) ||
+    getHeadings().some((heading) =>
+      stagedAdmissionsPattern.test(textOf(heading))
+    );
   const directApplicationDeadlines = findBlocks(
     /\b(?:deadline|closing date|applications? close)\b/i,
     datePattern,
@@ -1899,20 +2063,39 @@ export async function readGenericPage(options = {}) {
         )
     )
     .map((rawText) => {
-      const value = rawText.match(datePattern)?.[0] || "";
+      const dates = Array.from(
+        rawText.matchAll(new RegExp(datePattern.source, "gi"))
+      ).map((match) => match[0]);
+      const applicantCategory = /\ball\s+applicants?\b/i.test(rawText)
+        ? "all_applicants"
+        : /applicants?\s+who\s+(?:will\s+)?require\s+a\s+visa/i.test(rawText)
+          ? "visa_required"
+          : /applicants?\s+who\s+do\s+not\s+require\s+a\s+visa/i.test(rawText)
+            ? "visa_not_required"
+            : "";
+      const value =
+        dates.length > 1 && applicantCategory ? dates.at(-1) : dates[0] || "";
       const intake = intakeFrom(rawText);
       const academicCycle = academicCycleFrom(rawText);
       const matchesSelectedCycle =
         academicCycle &&
         academicCycle === normalize(basis.academicCycle);
-      return value && (intake.intakeMonth || matchesSelectedCycle)
+      return value &&
+        (intake.intakeMonth || matchesSelectedCycle || applicantCategory)
         ? {
-            academicCycle,
+            academicCycle:
+              academicCycle ||
+              (applicantCategory ? normalize(basis.academicCycle) : ""),
             intakeMonth:
-              intake.intakeMonth || Number(basis.intakeMonth) || 0,
+              (applicantCategory ? 0 : intake.intakeMonth) ||
+              Number(basis.intakeMonth) ||
+              0,
             intakeYear:
-              intake.intakeYear || Number(basis.intakeYear) || 0,
+              (applicantCategory ? 0 : intake.intakeYear) ||
+              Number(basis.intakeYear) ||
+              0,
             feeStatus: normalize(basis.feeStatus) || "international",
+            ...(applicantCategory ? { applicantCategory } : {}),
             value,
             rawText: limit(rawText, 900),
             sourceUrl,
@@ -1949,9 +2132,57 @@ export async function readGenericPage(options = {}) {
         .filter(Boolean)
     : [];
   const readLinkedApplicationDeadlines = async () => {
-    if (!normalize(options.applicationDeadlineUrl)) return [];
+    if (!applicationDeadlineLink?.url) return [];
     const linked = await readLinkedDocument(applicationDeadlineLink);
+    if (!linked?.root) return [];
     const targetYear = Number(basis.intakeYear) || 0;
+    for (const table of Array.from(linked.root.querySelectorAll("table") ?? [])) {
+      const rows = Array.from(table.querySelectorAll("tr") ?? []);
+      const headerRow = rows.find(
+        (candidate) => candidate.querySelectorAll("th").length >= 2
+      );
+      if (!headerRow) continue;
+      const headers = Array.from(headerRow.querySelectorAll("th,td")).map(
+        textOf
+      );
+      const stageIndex = headers.findIndex((header) =>
+        /^(?:stage|round)$/i.test(header)
+      );
+      const deadlineIndex = headers.findIndex((header) =>
+        /application\s+(?:received|submitted)\s+by|application\s+deadline|deadline\s+to\s+apply/i.test(
+          header
+        )
+      );
+      if (stageIndex === -1 || deadlineIndex === -1) continue;
+      const firstStageRow = rows
+        .slice(rows.indexOf(headerRow) + 1)
+        .find((candidate) => {
+          const cells = Array.from(candidate.querySelectorAll("th,td")).map(
+            textOf
+          );
+          return /^\s*(?:stage\s*)?1\s*$/i.test(cells[stageIndex] || "") &&
+            datePattern.test(cells[deadlineIndex] || "");
+        });
+      if (!firstStageRow) continue;
+      const cells = Array.from(firstStageRow.querySelectorAll("th,td")).map(
+        textOf
+      );
+      const value = (cells[deadlineIndex] || "").match(datePattern)?.[0] || "";
+      if (!value) continue;
+      return [
+        {
+          academicCycle: normalize(basis.academicCycle),
+          intakeMonth: Number(basis.intakeMonth) || 0,
+          intakeYear: targetYear,
+          feeStatus: normalize(basis.feeStatus) || "international",
+          applicantCategory: "staged_first",
+          value,
+          rawText: limit(`${headers.join(" | ")} ${cells.join(" | ")}`, 900),
+          sourceUrl: linked.sourceUrl,
+          publicationStatus: "published"
+        }
+      ];
+    }
     const row = Array.from(linked?.root?.querySelectorAll("tr") ?? []).find(
       (candidate) => {
         const text = textOf(candidate);
@@ -1981,15 +2212,24 @@ export async function readGenericPage(options = {}) {
       : [];
   };
   const linkedApplicationDeadlines =
-    directApplicationDeadlines.length === 0 &&
-    visaRequiredDeadlineCandidates.length === 0
+    (hasStagedAdmissions ||
+      (directApplicationDeadlines.length === 0 &&
+        visaRequiredDeadlineCandidates.length === 0)) &&
+    (normalize(options.applicationDeadlineUrl) || hasStagedAdmissions)
       ? await readLinkedApplicationDeadlines()
       : [];
-  const applicationDeadlines = [
-    ...directApplicationDeadlines,
-    ...visaRequiredDeadlineCandidates,
-    ...linkedApplicationDeadlines
-  ].filter(
+  const stagedFirstDeadlines = linkedApplicationDeadlines.filter(
+    (candidate) => candidate.applicantCategory === "staged_first"
+  );
+  const applicationDeadlines = (
+    stagedFirstDeadlines.length > 0
+      ? stagedFirstDeadlines
+      : [
+          ...directApplicationDeadlines,
+          ...visaRequiredDeadlineCandidates,
+          ...linkedApplicationDeadlines
+        ]
+  ).filter(
     (candidate, index, all) =>
       all.findIndex(
         (item) =>
@@ -1998,18 +2238,36 @@ export async function readGenericPage(options = {}) {
       ) === index
   );
 
-  const applicationDeadlineModes = findBlocks(
-    /\b(?:rolling\s+basis|applications?\s+(?:are\s+)?considered\s+on\s+a\s+rolling\s+basis|staged\s+admissions?|staged\s+entry)\b/i,
-    null,
-    5
-  )
+  const deadlineModePattern =
+    /\b(?:rolling\s+basis|applications?\s+(?:are\s+)?considered\s+on\s+a\s+rolling\s+basis|staged\s+admissions?(?:\s+process)?|staged\s+entry|there\s+is\s+no\s+application\s+closing\s+date|no\s+(?:fixed\s+)?application\s+(?:closing\s+date|deadline))\b/i;
+  const deadlineHeadingMode = getHeadings().find((heading) =>
+    deadlineModePattern.test(textOf(heading))
+  );
+  const applicationDeadlineModes = [
+    ...findBlocks(deadlineModePattern, null, 5),
+    deadlineHeadingMode
+      ? normalize(
+          `${textOf(deadlineHeadingMode)} ${collectSection(deadlineModePattern)}`
+        )
+      : ""
+  ]
+    .filter(Boolean)
+    .filter((text, index, all) => all.indexOf(text) === index)
     .map((rawText) => ({
-      kind: /rolling\s+basis|considered\s+on\s+a\s+rolling\s+basis/i.test(rawText)
-        ? "rolling"
-        : "staged",
-      value: /rolling\s+basis|considered\s+on\s+a\s+rolling\s+basis/i.test(rawText)
-        ? "Rolling basis"
-        : "Staged admission",
+      kind: /no\s+(?:fixed\s+)?application|there\s+is\s+no\s+application/i.test(
+        rawText
+      )
+        ? "no_closing_date"
+        : /rolling\s+basis|considered\s+on\s+a\s+rolling\s+basis/i.test(rawText)
+          ? "rolling"
+          : "staged",
+      value: /no\s+(?:fixed\s+)?application|there\s+is\s+no\s+application/i.test(
+        rawText
+      )
+        ? "No application closing date"
+        : /rolling\s+basis|considered\s+on\s+a\s+rolling\s+basis/i.test(rawText)
+          ? "Rolling basis"
+          : "Staged admission",
       rawText: limit(rawText, 900),
       sourceUrl
     }))

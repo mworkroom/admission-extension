@@ -87,7 +87,8 @@ class EntryFixtureNode {
     id = "",
     className = "",
     children = [],
-    attributes = {}
+    attributes = {},
+    value = ""
   } = {}) {
     this.tagName = tag.toUpperCase();
     this._text = text;
@@ -97,7 +98,7 @@ class EntryFixtureNode {
     this.parentElement = null;
     this.nextElementSibling = null;
     this.href = "";
-    this.value = "";
+    this.value = value;
     this.attributes = attributes;
     children.forEach((child, index) => {
       child.parentElement = this;
@@ -192,6 +193,11 @@ class EntryFixtureNode {
   click() {
     this.clicked = true;
   }
+
+  dispatchEvent(event) {
+    this.dispatchedEvents ??= [];
+    this.dispatchedEvents.push(event.type);
+  }
 }
 
 const entryNode = (tag, text = "", options = {}) =>
@@ -209,6 +215,7 @@ const tuitionFixtureNode = (definition) =>
     id: definition.id || "",
     className: definition.className || "",
     attributes: definition.attributes || {},
+    value: definition.value || "",
     children: (definition.children || []).map(tuitionFixtureNode)
   });
 
@@ -369,7 +376,15 @@ test("Tuition Fee v2는 실제 DOM 관계를 4개 핵심 extractor 계열로 보
             node.tagName === "BUTTON" &&
             /^International fees$/i.test(node.innerText)
         );
-        assert.equal(internationalTab.clicked, true, fixture.name);
+        const countrySelect = collectFixtureNodes(root).find(
+          (node) =>
+            node.tagName === "SELECT" &&
+            /fee|cost|tuition/i.test(`${node.id} ${node.className}`)
+        );
+        assert.ok(
+          internationalTab?.clicked || countrySelect?.value === "South Korea",
+          fixture.name
+        );
       }
       if (fixture.name.includes("Southampton")) {
         assert.deepEqual(
@@ -388,6 +403,44 @@ test("Tuition Fee v2는 실제 DOM 관계를 4개 핵심 extractor 계열로 보
               candidate.category === "scholarship" &&
               candidate.value === "£5,000"
           )
+        );
+      }
+      if (fixture.name.includes("Manchester ordered prefix")) {
+        assert.deepEqual(
+          payload.tuitionFeeCandidates.map((candidate) => [
+            candidate.value,
+            candidate.feeStatus
+          ]),
+          [
+            ["£38,400", "international"],
+            ["£16,300", "home"]
+          ]
+        );
+      }
+      if (fixture.name.includes("Sheffield fee boxes")) {
+        assert.ok(
+          payload.moneyCandidates.some(
+            (candidate) =>
+              candidate.value === "£2,500" &&
+              candidate.category === "scholarship"
+          )
+        );
+        assert.ok(
+          !payload.tuitionFeeCandidates.some(
+            (candidate) => candidate.value === "£2,500"
+          )
+        );
+      }
+      if (fixture.name.includes("UCL class-labelled")) {
+        assert.deepEqual(
+          payload.tuitionFeeCandidates.map((candidate) => [
+            candidate.value,
+            candidate.studyMode
+          ]),
+          [
+            ["£35,400", "full-time"],
+            ["£17,700", "part-time"]
+          ]
         );
       }
     } finally {
@@ -1010,6 +1063,145 @@ test("Manchester 통합 과정 페이지는 학비·staged 일정·조건부 서
     assert.equal(field("sopGuideline").status, "not_required");
     assert.equal(field("cv").value, "Required if graduated more than three years ago");
     assert.equal(field("koreanAcademicRequirements").value, "GPA 3.5/4.5 or GPA 3.3/4.3");
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousLocation === undefined) delete globalThis.location;
+    else globalThis.location = previousLocation;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+    if (previousParser === undefined) delete globalThis.DOMParser;
+    else globalThis.DOMParser = previousParser;
+  }
+});
+
+test("generic reader는 공통 지원기간의 종료일과 마감일 없음 문구를 보존한다", async () => {
+  const common = await readMoneyFixture("UCL", [
+    "Applications accepted. All applicants: 20 October 2025 – 28 August 2026. Applications close at 5pm UK time."
+  ]);
+  const commonDeadline = common.analysis.fields.find(
+    (field) => field.key === "universityApplicationDeadline"
+  );
+  assert.equal(common.payload.applicationDeadlines[0].value, "28 August 2026");
+  assert.equal(
+    common.payload.applicationDeadlines[0].applicantCategory,
+    "all_applicants"
+  );
+  assert.equal(commonDeadline.status, "found");
+  assert.equal(commonDeadline.value, "28 August 2026");
+
+  const noClosingDate = await readMoneyFixture("Newcastle", [
+    "There is no application closing date for this course."
+  ]);
+  const noClosingDateField = noClosingDate.analysis.fields.find(
+    (field) => field.key === "universityApplicationDeadline"
+  );
+  assert.equal(
+    noClosingDate.payload.applicationDeadlineModes[0].kind,
+    "no_closing_date"
+  );
+  assert.equal(noClosingDateField.status, "found");
+  assert.equal(noClosingDateField.value, "No application closing date");
+});
+
+test("staged admissions 표는 첫 단계의 application received by 날짜를 우선한다", async () => {
+  const stagedText = new FakeNode({
+    tag: "p",
+    text: "We operate a staged admissions process with selection deadlines."
+  });
+  const stagedLink = new FakeNode({
+    tag: "a",
+    text: "Staged Admissions Deadlines",
+    href: "https://example.test/masters/how-to-apply/"
+  });
+  const courseHeading = new FakeNode({ tag: "h1", text: "Management MSc" });
+  const root = new FakeNode({ children: [courseHeading, stagedText, stagedLink] });
+  root.querySelector = (selector) => selector === "h1" ? courseHeading : null;
+  root.querySelectorAll = (selector) => {
+    if (selector === "h1,h2,h3,h4,h5,h6") return [courseHeading];
+    if (selector === "p,li,dd,tr") return [stagedText];
+    if (selector === "p") return [stagedText];
+    if (selector === "a[href]") return [stagedLink];
+    return [];
+  };
+
+  const headerRow = new FakeNode({
+    tag: "tr",
+    children: [
+      new FakeNode({ tag: "th", text: "Stage" }),
+      new FakeNode({ tag: "th", text: "Application received by:" }),
+      new FakeNode({ tag: "th", text: "Application update by:" })
+    ]
+  });
+  const stageOne = new FakeNode({
+    tag: "tr",
+    children: [
+      new FakeNode({ tag: "td", text: "1" }),
+      new FakeNode({ tag: "td", text: "7 December 2025" }),
+      new FakeNode({ tag: "td", text: "20 February 2026" })
+    ]
+  });
+  const stageTwo = new FakeNode({
+    tag: "tr",
+    children: [
+      new FakeNode({ tag: "td", text: "2" }),
+      new FakeNode({ tag: "td", text: "1 March 2026" }),
+      new FakeNode({ tag: "td", text: "1 May 2026" })
+    ]
+  });
+  const table = new FakeNode({
+    tag: "table",
+    children: [headerRow, stageOne, stageTwo]
+  });
+  const linkedRoot = new FakeNode({ children: [table] });
+
+  const previousDocument = globalThis.document;
+  const previousLocation = globalThis.location;
+  const previousFetch = globalThis.fetch;
+  const previousParser = globalThis.DOMParser;
+  globalThis.document = {
+    title: "Management MSc",
+    body: root,
+    querySelector: (selector) =>
+      selector === "main, [role='main']" ? root : null,
+    querySelectorAll: () => []
+  };
+  globalThis.location = {
+    href: "https://example.test/masters/management/",
+    hostname: "example.test",
+    pathname: "/masters/management/"
+  };
+  globalThis.fetch = async () => ({
+    ok: true,
+    text: async () => "staged-table"
+  });
+  globalThis.DOMParser = class {
+    parseFromString() {
+      return { body: linkedRoot, querySelector: () => linkedRoot };
+    }
+  };
+
+  const basis = {
+    academicCycle: "2026/27",
+    intakeMonth: 9,
+    intakeYear: 2026,
+    studyMode: "full-time",
+    feeStatus: "international"
+  };
+  try {
+    const payload = await readGenericPage({ basis });
+    const analysis = parseCourseSnapshot(payload, basis);
+    const deadline = analysis.fields.find(
+      (field) => field.key === "universityApplicationDeadline"
+    );
+    assert.equal(payload.applicationDeadlines.length, 1);
+    assert.equal(payload.applicationDeadlines[0].value, "7 December 2025");
+    assert.equal(
+      payload.applicationDeadlines[0].applicantCategory,
+      "staged_first"
+    );
+    assert.equal(deadline.status, "found");
+    assert.equal(deadline.value, "7 December 2025");
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;

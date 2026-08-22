@@ -123,6 +123,75 @@
     }
   },
   {
+    "name": "Manchester ordered prefix labels",
+    "family": "Heading/Sibling/Text",
+    "expected": "£38,400",
+    "dom": {
+      "tag": "section",
+      "children": [
+        { "tag": "h2", "text": "Fees and funding" },
+        { "tag": "p", "text": "For entry in the academic year beginning September 2026, the tuition fees are as follows:" },
+        { "tag": "li", "text": "MSc (full-time) UK students (per annum): £16,300 International, including EU, students (per annum): £38,400" },
+        { "tag": "h2", "text": "Entry requirements" }
+      ]
+    }
+  },
+  {
+    "name": "Sheffield fee boxes with alumni saving",
+    "family": "Card/Container",
+    "expected": "£26,320",
+    "dom": {
+      "tag": "section",
+      "children": [
+        { "tag": "h2", "text": "Fees and funding" },
+        {
+          "tag": "div",
+          "className": "course-pgt-fee-lookup",
+          "children": [
+            {
+              "tag": "div",
+              "className": "feebox",
+              "children": [
+                { "tag": "div", "text": "£13,155" },
+                { "tag": "div", "text": "Home students 2026-27 tuition fee" }
+              ]
+            },
+            {
+              "tag": "div",
+              "className": "feebox",
+              "children": [
+                { "tag": "div", "text": "£26,320" },
+                { "tag": "div", "text": "Overseas students 2026-27 tuition fee" }
+              ]
+            }
+          ]
+        },
+        { "tag": "h3", "text": "Save up to £2,500 on your course fees" },
+        { "tag": "p", "text": "Are you a Sheffield graduate? You could save up to £2,500 on your postgraduate taught course fees, subject to eligibility." }
+      ]
+    }
+  },
+  {
+    "name": "UCL class-labelled study modes",
+    "family": "Card/Container",
+    "expected": "£35,400",
+    "dom": {
+      "tag": "section",
+      "children": [
+        { "tag": "h2", "text": "Fees" },
+        { "tag": "h5", "text": "Overseas tuition fees (2026/27)" },
+        {
+          "tag": "div",
+          "className": "uk-overseas international",
+          "children": [
+            { "tag": "div", "className": "study-mode fulltime", "text": "£35,400" },
+            { "tag": "div", "className": "study-mode parttime", "text": "£17,700" }
+          ]
+        }
+      ]
+    }
+  },
+  {
     "name": "Birmingham international audience panel",
     "family": "Card/Container",
     "expected": "£35,460",
@@ -148,6 +217,36 @@
           "attributes": { "role": "tabpanel" },
           "children": [
             { "tag": "p", "text": "International students · September 2026 · full-time tuition fee £35,460" }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "Birmingham country audience selector",
+    "family": "Card/Container",
+    "expected": "£35,460",
+    "adapter": "audienceSelection",
+    "dom": {
+      "tag": "section",
+      "className": "fees-panel",
+      "children": [
+        { "tag": "h2", "text": "Course fees" },
+        {
+          "tag": "select",
+          "id": "countryDropdownFees",
+          "className": "form-select__select",
+          "value": "United Kingdom",
+          "children": [
+            { "tag": "option", "text": "United Kingdom", "value": "United Kingdom" },
+            { "tag": "option", "text": "South Korea", "value": "South Korea" }
+          ]
+        },
+        {
+          "tag": "div",
+          "className": "fee-card",
+          "children": [
+            { "tag": "p", "text": "Fees (international) · September 2026 · full-time tuition fee £35,460" }
           ]
         }
       ]
